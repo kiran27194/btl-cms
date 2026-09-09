@@ -286,16 +286,16 @@
             </div>
             <form id="loginForm" onsubmit="handleLogin(event)">
                 <div class="form-group" style="margin-bottom: 1rem;">
-                    <label for="loginUsername">Username</label>
-                    <input type="text" id="loginUsername" required value="admin" autocomplete="username">
+                    <label for="loginUsername" id="loginUsernameLabel">Email</label>
+                    <input type="text" id="loginUsername" required autocomplete="username" placeholder="you@company.com">
                 </div>
                 <div class="form-group" style="margin-bottom: 1.5rem;">
                     <label for="loginPassword">Password</label>
-                    <input type="password" id="loginPassword" required value="password" autocomplete="current-password">
+                    <input type="password" id="loginPassword" required autocomplete="current-password" placeholder="••••••••">
                 </div>
-                <button type="submit" style="width: 100%;">Sign in</button>
+                <button type="submit" id="loginSubmitBtn" style="width: 100%;">Sign in</button>
             </form>
-            <p class="login-hint">Demo login — any password works. Data is stored in a shared Supabase database, so changes are visible to everyone using this link.</p>
+            <p class="login-hint" id="loginHintText">Staff Portal uses your real Supabase account. Tech Mobile App is still a demo login — use any password.</p>
         </div>
     </div>
 
@@ -982,33 +982,86 @@
             loginMode = mode;
             document.getElementById('btnStaffPortal').classList.toggle('active', mode === 'staff');
             document.getElementById('btnTechPortal').classList.toggle('active', mode === 'tech');
-            document.getElementById('loginUsername').value = mode === 'staff' ? 'admin' : 'tech';
+            const userField = document.getElementById('loginUsername');
+            const passField = document.getElementById('loginPassword');
+            const label = document.getElementById('loginUsernameLabel');
+            const hint = document.getElementById('loginHintText');
+            userField.value = '';
+            passField.value = '';
+            if (mode === 'staff') {
+                label.innerText = 'Email';
+                userField.type = 'text';
+                userField.placeholder = 'you@company.com';
+                hint.innerText = 'Staff Portal uses your real Supabase account.';
+            } else {
+                label.innerText = 'Username';
+                userField.type = 'text';
+                userField.placeholder = 'tech';
+                userField.value = 'tech';
+                hint.innerText = 'Tech Mobile App is still a demo login — any password works.';
+            }
         }
 
-        function handleLogin(e) {
+        async function handleLogin(e) {
             e.preventDefault();
-            currentRole = loginMode;
-            document.getElementById('loginOverlay').style.display = 'none';
+            const username = document.getElementById('loginUsername').value.trim();
+            const password = document.getElementById('loginPassword').value;
+            const submitBtn = document.getElementById('loginSubmitBtn');
 
-            if (currentRole === 'staff') {
-                document.getElementById('currentUserName').innerText = "Admin Staff";
-                document.getElementById('currentUserRole').innerText = "Manager";
+            if (loginMode === 'staff') {
+                submitBtn.disabled = true;
+                submitBtn.innerText = 'Signing in…';
+                const { data, error } = await sb.auth.signInWithPassword({ email: username, password });
+                submitBtn.disabled = false;
+                submitBtn.innerText = 'Sign in';
+                if (error) {
+                    showToast(error.message === 'Invalid login credentials' ? 'Incorrect email or password.' : error.message, 'error');
+                    return;
+                }
+                currentRole = 'staff';
+                const displayName = data.user.user_metadata?.name || data.user.email;
+                document.getElementById('currentUserName').innerText = displayName;
+                document.getElementById('currentUserRole').innerText = 'Manager';
                 document.querySelectorAll('.staff-only').forEach(el => el.style.display = 'flex');
                 document.querySelectorAll('.tech-only').forEach(el => el.style.display = 'none');
+                document.getElementById('loginOverlay').style.display = 'none';
                 switchView('dashboard', document.querySelector('.nav-item.staff-only'));
+                showToast(`Signed in as ${displayName}`, 'success');
             } else {
+                // Field technician portal remains a lightweight demo login — no per-technician accounts yet.
+                currentRole = 'tech';
                 document.getElementById('currentUserName').innerText = "Alex Martin";
                 document.getElementById('currentUserRole').innerText = "Field Technician";
                 document.querySelectorAll('.staff-only').forEach(el => el.style.display = 'none');
                 document.querySelectorAll('.tech-only').forEach(el => el.style.display = 'flex');
+                document.getElementById('loginOverlay').style.display = 'none';
                 switchView('technician-portal', document.querySelector('.nav-item.tech-only'));
+                showToast('Signed in as Field Technician', 'success');
             }
-            showToast(`Signed in as ${currentRole === 'staff' ? 'Admin Staff' : 'Field Technician'}`, 'success');
         }
 
-        function logout() {
+        async function logout() {
+            if (currentRole === 'staff') await sb.auth.signOut();
+            currentRole = 'staff';
             document.getElementById('loginOverlay').style.display = 'flex';
             toggleMobileNav(false);
+            setLoginMode('staff');
+        }
+
+        async function restoreSession() {
+            const { data } = await sb.auth.getSession();
+            if (data.session) {
+                currentRole = 'staff';
+                const displayName = data.session.user.user_metadata?.name || data.session.user.email;
+                document.getElementById('currentUserName').innerText = displayName;
+                document.getElementById('currentUserRole').innerText = 'Manager';
+                document.querySelectorAll('.staff-only').forEach(el => el.style.display = 'flex');
+                document.querySelectorAll('.tech-only').forEach(el => el.style.display = 'none');
+                document.getElementById('loginOverlay').style.display = 'none';
+                switchView('dashboard', document.querySelector('.nav-item.staff-only'));
+                return true;
+            }
+            return false;
         }
 
         /* ================= Router ================= */
@@ -1685,11 +1738,13 @@
         }
 
         window.addEventListener('DOMContentLoaded', async () => {
+            let resumed = false;
             try {
                 await initDB();
+                resumed = await restoreSession();
             } finally {
                 document.getElementById('appLoading').style.display = 'none';
-                document.getElementById('loginOverlay').style.display = 'flex';
+                if (!resumed) document.getElementById('loginOverlay').style.display = 'flex';
                 renderDashboard();
             }
         });
