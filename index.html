@@ -210,6 +210,13 @@
         .asset-row { display: grid; grid-template-columns: 2fr 2fr 1.5fr auto auto; gap: 0.75rem; margin-bottom: 0.75rem; align-items: center; }
         .mobile-sim { max-width: 550px; margin: 0 auto; background: white; border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 1.5rem; box-shadow: var(--shadow-2); }
         .mobile-sim h2 { font-size: 1.15rem; letter-spacing: -0.01em; }
+        .app-tabs { display:flex; gap:.35rem; flex-wrap:wrap; margin:1rem 0 1.25rem; padding:.35rem; background:var(--bg); border:1px solid var(--border); border-radius:var(--radius); }
+        .app-tab-btn { flex:1 1 150px; border:0; background:transparent; color:var(--muted); padding:.65rem .8rem; border-radius:7px; cursor:pointer; font-weight:700; font-size:.82rem; }
+        .app-tab-btn:hover { background:white; color:var(--ink); }
+        .app-tab-btn.active { background:var(--brand); color:white; box-shadow:var(--shadow); }
+        .report-metrics { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:1rem; margin-bottom:1rem; }
+        @media (max-width: 800px) { .report-metrics { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+        @media (max-width: 520px) { .report-metrics { grid-template-columns:1fr; } }
 
         /* ============ Report View & Modal ============ */
         .printable-report { background: white; padding: 2rem; border: 1px solid var(--border); border-radius: var(--radius); font-size: 0.9rem; }
@@ -367,7 +374,7 @@
             <main>
                 <!-- 1. DASHBOARD -->
                 <div id="dashboard" class="view-panel active">
-                    <header class="view-head"><div><h1>Management Dashboard</h1><p class="lede">Live snapshot of complaint volume and technician workload</p></div></header>
+                    <header class="view-head"><div><h1>Management Dashboard</h1><p class="lede"></p></div></header>
                     <div class="metrics-grid">
                         <div class="card metric-card m-total"><div class="bar"></div><div class="card-title">Total Complaints</div><div class="card-value" id="stat-total">0</div></div>
                         <div class="card metric-card m-unassigned"><div class="bar"></div><div class="card-title">Unassigned</div><div class="card-value" id="stat-unassigned">0</div></div>
@@ -400,9 +407,9 @@
 
                 <!-- 2. CUSTOMER MGMT -->
                 <div id="customer-mgmt" class="view-panel">
-                    <header class="view-head"><div><h1>Customer &amp; Site Management</h1><p class="lede">Maintain customer profiles and their service sites</p></div></header>
+                    <header class="view-head"><div><h1>Customer &amp; Site Management</h1><p class="lede"></p></div></header>
                     <div class="card">
-                        <h3 id="custFormTitle">Add New Customer Profile</h3><br>
+                        <h3 id="custFormTitle">Add New Customer Profile</h3><p class="lede" style="margin-bottom:1rem;"></p>
                         <form id="customerForm" onsubmit="handleCustomerSubmit(event)">
                             <input type="hidden" id="editCustomerId">
                             <div class="form-grid">
@@ -439,7 +446,7 @@
 
                 <!-- 3. ASSET MGMT -->
                 <div id="asset-mgmt" class="view-panel">
-                    <header class="view-head"><div><h1>Asset Register</h1><p class="lede">Track installed equipment and warranty coverage</p></div></header>
+                    <header class="view-head"><div><h1>Asset Register</h1><p class="lede"></p></div></header>
                     <div class="card">
                         <h3 id="assetFormTitle">Add / Edit Assets</h3><br>
                         <form id="assetForm" onsubmit="handleAssetSubmit(event)">
@@ -463,9 +470,18 @@
                                         <option>Networking</option>
                                         <option>Fire &amp; Life Safety</option>
                                     </select>
-                                    <input type="text" class="asset-model" required placeholder="Model Name">
+                                    <input type="text" class="asset-brand" required placeholder="Brand">
+                                    <input type="text" class="asset-model" required placeholder="Model No.">
                                     <input type="text" class="asset-serial" required placeholder="Serial Number">
-                                    <input type="date" class="asset-expiry" required>
+                                    <input type="date" class="asset-entry-date" required onchange="updateAssetExpiry(this)">
+                                    <select class="asset-warranty" required onchange="updateAssetExpiry(this)">
+                                        <option value="No Warranty">No Warranty</option>
+                                        <option value="6 Months Warranty">6 Months Warranty</option>
+                                        <option value="1 Year Warranty">1 Year Warranty</option>
+                                        <option value="2 Years Warranty">2 Years Warranty</option>
+                                        <option value="3 Years Warranty">3 Years Warranty</option>
+                                    </select>
+                                    <input type="date" class="asset-expiry" readonly title="Warranty expiry calculated from entry date and warranty validity">
                                     <button type="button" class="btn-secondary btn-sm asset-row-remove" onclick="removeAssetRow(this)" style="display:none;">✕</button>
                                 </div>
                             </div>
@@ -478,11 +494,11 @@
                     </div>
                     <h2 class="section-title">Installed Equipment</h2>
                     <div class="search-row">
-                        <input type="search" id="assetSearchInput" placeholder="Search by serial, customer, model…" oninput="renderAssetsView(false)">
+                        <input type="search" id="assetSearchInput" placeholder="Search by serial, customer, brand, model no.…" oninput="renderAssetsView(false)">
                     </div>
                     <div class="table-scroll">
                         <table>
-                            <thead><tr><th>Serial Number</th><th>Customer</th><th>Site</th><th>Category &amp; Model</th><th>Warranty Expiry</th><th>Actions</th></tr></thead>
+                            <thead><tr><th>Serial Number</th><th>Customer</th><th>Site</th><th>Category</th><th>Brand</th><th>Model No.</th><th>Entry Date</th><th>Warranty</th><th>Warranty Expiry</th><th>Actions</th></tr></thead>
                             <tbody id="asset-table-body"></tbody>
                         </table>
                     </div>
@@ -490,7 +506,7 @@
 
                 <!-- 4. LOG COMPLAINTS -->
                 <div id="log-complaints" class="view-panel">
-                    <header class="view-head"><div><h1>Complaint Tickets Ledger</h1><p class="lede">Log new tickets and track every complaint through resolution</p></div></header>
+                    <header class="view-head"><div><h1>Complaint Tickets Ledger</h1><p class="lede"></p></div></header>
                     <div class="card">
                         <h3>Log Technical Complaint</h3><br>
                         <form id="complaintForm" onsubmit="handleComplaintSubmit(event)">
@@ -542,6 +558,9 @@
                             <option value="all">All priorities</option>
                             <option>Critical</option><option>High</option><option>Medium</option><option>Low</option>
                         </select>
+                        <input type="date" id="ticketDateFrom" title="From date" onchange="renderFilteredTickets()">
+                        <input type="date" id="ticketDateTo" title="To date" onchange="renderFilteredTickets()">
+                        <button type="button" class="btn-secondary" onclick="clearTicketFilters()">Clear</button>
                         <button type="button" class="btn-secondary" onclick="exportTicketsCSV()">⬇ Export CSV</button>
                     </div>
                     <div class="table-scroll">
@@ -554,7 +573,7 @@
 
                 <!-- 5. ASSIGN OR REASSIGN TECH -->
                 <div id="assign-tech" class="view-panel">
-                    <header class="view-head"><div><h1>Assign or Reassign Technician</h1><p class="lede">Allocate open tickets to field technicians and schedule visits</p></div></header>
+                    <header class="view-head"><div><h1>Assign or Reassign Technician</h1><p class="lede"></p></div></header>
                     <div class="card">
                         <h3>Task Allocation</h3><br>
                         <form id="assignForm" onsubmit="handleAssignmentSubmit(event)">
@@ -587,7 +606,12 @@
 
                 <!-- 6. TECHNICIAN MGMT -->
                 <div id="tech-mgmt" class="view-panel">
-                    <header class="view-head"><div><h1>Technician Directory</h1><p class="lede">Manage field technician profiles and specializations</p></div></header>
+                    <header class="view-head"><div><h1>Technician Directory</h1><p class="lede"></p></div></header>
+                    <div class="search-row" style="margin-bottom:1rem;">
+                        <button type="button" class="btn-secondary" onclick="showTechDirectoryTab('profile')">Technician Profile</button>
+                        <button type="button" class="btn-secondary" onclick="showTechDirectoryTab('password')">Password Modification</button>
+                    </div>
+                    <div id="techProfileTab">
                     <div class="card">
                         <h3 id="techFormTitle">Add Technician Manually</h3><br>
                         <form id="techMgmtForm" onsubmit="handleTechMgmtSubmit(event)">
@@ -633,38 +657,78 @@
                     <div class="search-row">
                         <input type="search" id="techSearchInput" placeholder="Search by name, ID, mobile, specialization…" oninput="renderTechMgmtView()">
                     </div>
+                    </div>
+                    <div id="techPasswordTab" style="display:none;">
+                    <div class="card" style="margin-top:1rem;">
+                        <h3>Password Modification</h3><p class="lede">Select a technician and set a new portal password.</p><br>
+                        <form id="techPasswordForm" onsubmit="handleTechPasswordChange(event)">
+                            <div class="form-grid">
+                                <div class="form-group"><label for="passwordTechSelect">Technician</label><select id="passwordTechSelect" required></select></div>
+                                <div class="form-group"><label for="newTechPassword">New Password</label><input type="password" id="newTechPassword" required minlength="4"></div>
+                                <div class="form-group"><label for="confirmTechPassword">Confirm New Password</label><input type="password" id="confirmTechPassword" required minlength="4"></div>
+                            </div>
+                            <div class="form-actions"><button type="submit">Update Password</button><button type="button" class="btn-secondary" onclick="document.getElementById('techPasswordForm').reset()">Cancel</button></div>
+                        </form>
+                    </div>
                     <div class="table-scroll">
                         <table>
                             <thead><tr><th>Tech ID</th><th>Name</th><th>Mobile</th><th>Login ID</th><th>Password</th><th>Specialization</th><th>Actions</th></tr></thead>
                             <tbody id="tech-master-table-body"></tbody>
                         </table>
                     </div>
+                    </div>
                 </div>
 
                 <!-- 7. ADMIN SERVICE REPORTS -->
                 <div id="admin-reports" class="view-panel">
-                    <header class="view-head"><div><h1>Service Call Reports Engine</h1><p class="lede">Generate a formal, printable report for any ticket</p></div></header>
-                    <div class="card">
-                        <h3>Generate Printable Service Call Report</h3><br>
-                        <div class="form-grid">
-                            <div class="form-group">
-                                <label for="reportTicketSelect">Select Ticket</label>
-                                <select id="reportTicketSelect" onchange="renderAdminReport()"><option value="">-- Select Ticket --</option></select>
-                            </div>
-                        </div>
-                        <button type="button" onclick="window.print()" class="btn-success">🖨️ Print / Save PDF</button>
+                    <header class="view-head"><div><h1>Service Reports</h1><p class="lede"></p></div></header>
+                    <div class="app-tabs">
+                        <button type="button" class="app-tab-btn active" data-admin-report-tab="admin-report-dashboard" onclick="switchAdminReportTab('admin-report-dashboard',this)">📊 Reports Dashboard</button>
+                        <button type="button" class="app-tab-btn" data-admin-report-tab="admin-report-search" onclick="switchAdminReportTab('admin-report-search',this)">🔎 Search Reports</button>
+                        <button type="button" class="app-tab-btn" data-admin-report-tab="admin-report-generate" onclick="switchAdminReportTab('admin-report-generate',this)">📄 Generate Report</button>
                     </div>
 
-                    <div id="printableArea">
-                        <div class="printable-report" id="reportRenderContainer">
-                            <p style="color: var(--muted);">Select a ticket above to generate the formal Service Call Report.</p>
+                    <section id="admin-report-dashboard" class="admin-report-tab">
+                        <div class="report-metrics">
+                            <div class="card metric-card"><div class="card-title">Total Reports</div><div class="card-value" id="adminReportTotal">0</div></div>
+                            <div class="card metric-card"><div class="card-title">Closed Reports</div><div class="card-value" id="adminReportClosed">0</div></div>
+                            <div class="card metric-card"><div class="card-title">Open / Pending</div><div class="card-value" id="adminReportOpen">0</div></div>
+                            <div class="card metric-card"><div class="card-title">With Spares</div><div class="card-value" id="adminReportSpares">0</div></div>
                         </div>
-                    </div>
+                        <div class="card">
+                            <h3>Recent Service Reports</h3><br>
+                            <div class="table-scroll" style="margin-bottom:0;"><table><thead><tr><th>Ticket ID</th><th>Service Date</th><th>Customer</th><th>Site</th><th>Technician</th><th>Status</th><th>Report</th></tr></thead><tbody id="admin-report-recent-body"></tbody></table></div>
+                        </div>
+                    </section>
+
+                    <section id="admin-report-search" class="admin-report-tab" style="display:none;">
+                        <div class="card">
+                            <h3>Search &amp; Date Filter</h3><br>
+                            <div class="search-row" style="display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:.5rem;">
+                                <input type="search" id="adminReportSearch" placeholder="Search ticket, customer, site, serial, technician, diagnosis…" oninput="renderAdminReportList()">
+                                <input type="date" id="adminReportFromDate" onchange="renderAdminReportList()" title="From date">
+                                <input type="date" id="adminReportToDate" onchange="renderAdminReportList()" title="To date">
+                                <button type="button" class="btn-secondary" onclick="clearAdminReportFilters()">Clear</button>
+                            </div>
+                        </div>
+                        <div class="table-scroll"><table><thead><tr><th>Ticket ID</th><th>Service Date</th><th>Customer</th><th>Site</th><th>Serial</th><th>Technician</th><th>Status</th><th>Report</th></tr></thead><tbody id="admin-report-list-body"></tbody></table></div>
+                    </section>
+
+                    <section id="admin-report-generate" class="admin-report-tab" style="display:none;">
+                        <div class="card">
+                            <h3>Generate Printable Service Call Report</h3><br>
+                            <div class="form-grid">
+                                <div class="form-group"><label for="reportTicketSelect">Select Ticket</label><select id="reportTicketSelect" onchange="renderAdminReport()"><option value="">-- Select Ticket --</option></select></div>
+                            </div>
+                            <button type="button" onclick="window.print()" class="btn-success">🖨️ Print / Save PDF</button>
+                        </div>
+                        <div id="printableArea"><div class="printable-report" id="reportRenderContainer"><p style="color: var(--muted);">Select a ticket above to generate the formal Service Call Report.</p></div></div>
+                    </section>
                 </div>
 
                 <!-- 8. EVENT AUDIT LOGS -->
                 <div id="audit-logs" class="view-panel">
-                    <header class="view-head"><div><h1>System Task Event Logs</h1><p class="lede">Full activity trail across the system</p></div></header>
+                    <header class="view-head"><div><h1>System Task Event Logs</h1><p class="lede"></p></div></header>
                     <div class="card">
                         <h3>Activity Trail</h3><br>
                         <div class="search-row">
@@ -682,66 +746,105 @@
                 <!-- 9. TECHNICIAN FIELD MOBILE PORTAL -->
                 <div id="technician-portal" class="view-panel">
                     <div class="mobile-sim">
-                        <h2>📱 Field Technician Mobile Portal</h2><br>
-                        <div class="form-group" style="margin-bottom: 1rem;">
-                            <label for="techTicketSelect">Select Ticket Assigned To You</label>
-                            <select id="techTicketSelect" onchange="loadTechAppTicketDetails()"><option value="">-- Select Ticket --</option></select>
+                        <div style="display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;">
+                            <div><h2>📱 Field Technician Mobile App</h2><p class="lede" style="margin:0.25rem 0 0;">Complaint handling, closure and service reports</p></div>
+                            <span id="techPortalUserBadge" class="badge">Technician</span>
                         </div>
 
-                        <form id="techAppForm" onsubmit="handleTechAppSubmit(event)">
-                            <div class="form-group" style="margin-bottom: 1rem;">
-                                <label for="techDiagnosis">Technical Fault Diagnosis</label>
-                                <textarea id="techDiagnosis" rows="2" required></textarea>
-                            </div>
-                            <div class="form-group" style="margin-bottom: 1rem;">
-                                <label for="techAction">Action Taken / Solution Executed</label>
-                                <textarea id="techAction" rows="2" required></textarea>
-                            </div>
+                        <div class="app-tabs">
+                            <button type="button" class="app-tab-btn active" data-tech-tab="tech-dashboard" onclick="switchTechTab('tech-dashboard',this)">📊 Dashboard</button>
+                            <button type="button" class="app-tab-btn" data-tech-tab="tech-open" onclick="switchTechTab('tech-open',this)">🛠 View / Close Complaint</button>
+                            <button type="button" class="app-tab-btn" data-tech-tab="tech-closed" onclick="switchTechTab('tech-closed',this)">✅ Closed Complaints</button>
+                            <button type="button" class="app-tab-btn" data-tech-tab="tech-reports" onclick="switchTechTab('tech-reports',this)">📄 Service Reports</button>
+                        </div>
 
-                            <div class="form-group" style="margin-bottom: 1rem;">
-                                <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
-                                    <input type="checkbox" id="chkSparesRequired" onchange="toggleSparesHighlight()">
-                                    <strong>Spares Replaced / Required? (Check to Highlight)</strong>
-                                </label>
+                        <!-- Technician Dashboard -->
+                        <section id="tech-dashboard" class="tech-app-tab">
+                            <div class="form-grid" id="techStatsGrid" style="margin-bottom:1rem;">
+                                <div class="stat-card"><span>Total Complaints</span><strong id="techStatTotal">0</strong></div>
+                                <div class="stat-card"><span>Open / Assigned</span><strong id="techStatOpen">0</strong></div>
+                                <div class="stat-card"><span>Pending Spares</span><strong id="techStatSpares">0</strong></div>
+                                <div class="stat-card"><span>Pending Support</span><strong id="techStatSupport">0</strong></div>
+                                <div class="stat-card"><span>Customer Approval</span><strong id="techStatApproval">0</strong></div>
+                                <div class="stat-card"><span>Closed Complaints</span><strong id="techStatClosed">0</strong></div>
                             </div>
-
-                            <div id="sparesContainer" class="spares-highlight-box">
-                                <label style="color: var(--amber); font-weight: bold; margin-bottom: 0.5rem; display: block;">⚡ SPARES USED / REQUIRED DETAILS</label>
-                                <input type="text" id="techSpares" placeholder="e.g. Cat6 Cable (10m), Hikvision Camera Power Adapter">
-                            </div>
-
-                            <div class="form-group" style="margin-bottom: 1rem;">
-                                <label for="techCallStatus">Call Status</label>
-                                <select id="techCallStatus" required onchange="toggleHappinessCodeRequirement()">
-                                    <option value="Closed">Closed (Requires Happiness Code)</option>
-                                    <option value="Pending for spares">Pending for spares</option>
-                                    <option value="Pending for tech support">Pending for tech support</option>
-                                    <option value="Pending for customer approval">Pending for customer approval</option>
-                                </select>
-                            </div>
-
-                            <div id="happinessCodeBox" class="form-group" style="margin-bottom: 1rem; background: #e0f2fe; padding: 0.75rem; border-radius: var(--radius-sm); border: 1px solid #0284c7;">
-                                <label style="color: #0369a1; font-weight: bold;">🔑 Customer Happiness Code (Required to Close)</label>
-                                <input type="text" id="techHappinessCode" placeholder="Enter 4-digit code provided by customer" maxlength="4" style="text-align: center; font-size: 1.1rem; letter-spacing: 0.2rem; font-weight: bold; margin-top: 0.4rem;" inputmode="numeric">
-                            </div>
-
-                            <div class="form-grid" style="margin-bottom: 1rem;">
-                                <div class="form-group">
-                                    <label for="imgIssueInput">1. Issue Proof Image</label>
-                                    <input type="file" id="imgIssueInput" accept="image/*" onchange="convertImageToBase64(this, 'issueImgBase64')">
-                                    <input type="hidden" id="issueImgBase64">
-                                </div>
-                                <div class="form-group">
-                                    <label for="imgFixInput">2. Resolution Proof Image</label>
-                                    <input type="file" id="imgFixInput" accept="image/*" onchange="convertImageToBase64(this, 'fixImgBase64')">
-                                    <input type="hidden" id="fixImgBase64">
+                            <div class="card" style="margin:0;">
+                                <h3>My Complaint Summary</h3>
+                                <div class="table-scroll">
+                                    <table><thead><tr><th>Ticket ID</th><th>Date</th><th>Customer</th><th>Site</th><th>Serial</th><th>Status</th><th>Visit Date</th></tr></thead>
+                                    <tbody id="tech-dashboard-table-body"></tbody></table>
                                 </div>
                             </div>
+                        </section>
 
-                            <button type="submit" style="width: 100%;">Save Technician Update &amp; Log Service Call</button>
-                        </form>
+                        <!-- View / Close Complaint -->
+                        <section id="tech-open" class="tech-app-tab" style="display:none;">
+                            <div class="form-group" style="margin-bottom:1rem;">
+                                <label for="techTicketSelect">Select Open Complaint Assigned To You</label>
+                                <select id="techTicketSelect" onchange="loadTechAppTicketDetails()"><option value="">-- Select Ticket --</option></select>
+                            </div>
+                            <div id="techSelectedComplaint" class="card" style="display:none;margin-bottom:1rem;"></div>
+
+                            <form id="techAppForm" onsubmit="handleTechAppSubmit(event)">
+                                <div class="form-group" style="margin-bottom:1rem;">
+                                    <label for="techDiagnosis">Technical Fault Diagnosis</label>
+                                    <textarea id="techDiagnosis" rows="2" required></textarea>
+                                </div>
+                                <div class="form-group" style="margin-bottom:1rem;">
+                                    <label for="techAction">Action Taken / Solution Executed</label>
+                                    <textarea id="techAction" rows="2" required></textarea>
+                                </div>
+                                <div class="form-group" style="margin-bottom:1rem;">
+                                    <label style="display:flex;align-items:center;gap:.5rem;cursor:pointer;">
+                                        <input type="checkbox" id="chkSparesRequired" onchange="toggleSparesHighlight()">
+                                        <strong>Spares Replaced / Required?</strong>
+                                    </label>
+                                </div>
+                                <div id="sparesContainer" class="spares-highlight-box">
+                                    <label style="color:var(--amber);font-weight:bold;margin-bottom:.5rem;display:block;">⚡ SPARES USED / REQUIRED DETAILS</label>
+                                    <input type="text" id="techSpares" placeholder="e.g. Cat6 Cable (10m), Camera Power Adapter">
+                                </div>
+                                <div class="form-group" style="margin-bottom:1rem;">
+                                    <label for="techCallStatus">Call Status</label>
+                                    <select id="techCallStatus" required onchange="toggleHappinessCodeRequirement()">
+                                        <option value="Closed">Closed (Requires Happiness Code)</option>
+                                        <option value="Pending for spares">Pending for spares</option>
+                                        <option value="Pending for tech support">Pending for tech support</option>
+                                        <option value="Pending for customer approval">Pending for customer approval</option>
+                                    </select>
+                                </div>
+                                <div id="happinessCodeBox" class="form-group" style="margin-bottom:1rem;background:#e0f2fe;padding:.75rem;border-radius:var(--radius-sm);border:1px solid #0284c7;">
+                                    <label style="color:#0369a1;font-weight:bold;">🔑 Customer Happiness Code (Required to Close)</label>
+                                    <input type="text" id="techHappinessCode" placeholder="Enter 4-digit code provided by customer" maxlength="4" style="text-align:center;font-size:1.1rem;letter-spacing:.2rem;font-weight:bold;margin-top:.4rem;" inputmode="numeric">
+                                </div>
+                                <div class="form-grid" style="margin-bottom:1rem;">
+                                    <div class="form-group"><label for="imgIssueInput">1. Issue Proof Image</label><input type="file" id="imgIssueInput" accept="image/*" onchange="convertImageToBase64(this, 'issueImgBase64')"><input type="hidden" id="issueImgBase64"></div>
+                                    <div class="form-group"><label for="imgFixInput">2. Resolution Proof Image</label><input type="file" id="imgFixInput" accept="image/*" onchange="convertImageToBase64(this, 'fixImgBase64')"><input type="hidden" id="fixImgBase64"></div>
+                                </div>
+                                <button type="submit" style="width:100%;">Save Technician Update &amp; Log Service Call</button>
+                            </form>
+                        </section>
+
+                        <!-- Closed Complaints -->
+                        <section id="tech-closed" class="tech-app-tab" style="display:none;">
+                            <div class="search-row" style="margin-bottom:1rem;"><input type="search" id="techClosedSearch" placeholder="Search ticket, customer, site, serial…" oninput="renderTechClosedComplaints()"></div>
+                            <div class="table-scroll"><table><thead><tr><th>Ticket ID</th><th>Closed Date</th><th>Customer</th><th>Site</th><th>Serial</th><th>Diagnosis</th><th>Action</th><th>Report</th></tr></thead><tbody id="tech-closed-table-body"></tbody></table></div>
+                        </section>
+
+                        <!-- Service Reports -->
+                        <section id="tech-reports" class="tech-app-tab" style="display:none;">
+                            <div class="search-row" style="display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:.5rem;margin-bottom:1rem;">
+                                <input type="search" id="techReportSearch" placeholder="Search ticket, customer, site, serial…" oninput="renderTechServiceReports()">
+                                <input type="date" id="techReportFromDate" onchange="renderTechServiceReports()" title="From date">
+                                <input type="date" id="techReportToDate" onchange="renderTechServiceReports()" title="To date">
+                                <button type="button" class="btn-secondary" onclick="clearTechReportFilters()">Clear</button>
+                            </div>
+                            <div class="table-scroll"><table><thead><tr><th>Ticket ID</th><th>Service Date</th><th>Customer</th><th>Site</th><th>Serial</th><th>Status</th><th>Diagnosis</th><th>Action</th><th>Report</th></tr></thead><tbody id="tech-report-table-body"></tbody></table></div>
+                            <div id="techServiceReportPreview" class="card" style="display:none;margin-top:1rem;"></div>
+                        </section>
                     </div>
                 </div>
+
             </main>
         </div>
     </div>
@@ -829,14 +932,14 @@
             const orderCol = store === 'auditLogs' ? 'id' : 'created_at';
             const { data, error } = await sb.from(table).select('*').order(orderCol, { ascending: true });
             if (error) { reportDbError('Load', error); return []; }
-            return (data || []).map(row => fromDbRow(store, row));
+            return (data || []).map(row => { const obj = fromDbRow(store, row); return store === 'assets' ? mergeAssetMetadata(obj) : obj; });
         }
 
         async function getRecord(store, key) {
             const table = STORE_TABLE[store];
             const { data, error } = await sb.from(table).select('*').eq(PK[store], key).maybeSingle();
             if (error) { reportDbError('Load', error); return null; }
-            return fromDbRow(store, data);
+            const obj = fromDbRow(store, data); return store === 'assets' ? mergeAssetMetadata(obj) : obj;
         }
 
         async function getCount(store) {
@@ -873,7 +976,7 @@
         async function seedDatabase() {
             if (await getCount('customers') === 0) {
                 await addRecord('customers', {
-                    id: "CUST-1001", name: "ABC Industries", contact: "John Doe", mobile: "+91 9876543210", email: "john@abc.com",
+                    id: "BTL1001", name: "ABC Industries", contact: "John Doe", mobile: "+91 9876543210", email: "john@abc.com",
                     sites: [{ name: "Hyderabad Hub", address: "Plot 12, Hitec City" }]
                 });
             }
@@ -1067,8 +1170,9 @@
                 showToast(`Signed in as ${displayName}`, 'success');
             } else {
                 const customCreds = JSON.parse(localStorage.getItem('btl_tech_credentials') || '{}');
-                const tech = TECHNICIAN_CREDENTIALS.find(t => t.loginId.toLowerCase() === username.toLowerCase() && t.password === password) ||
-                    Object.entries(customCreds).map(([id, c]) => ({ id, loginId: c.loginId, password: c.password })).find(t => t.loginId.toLowerCase() === username.toLowerCase() && t.password === password);
+                const mergedCreds = TECHNICIAN_CREDENTIALS.map(t => ({...t, ...(customCreds[t.id] || {})}));
+                Object.entries(customCreds).forEach(([id,c]) => { if(!mergedCreds.some(t=>t.id===id)) mergedCreds.push({id, ...c}); });
+                const tech = mergedCreds.find(t => t.loginId.toLowerCase() === username.toLowerCase() && t.password === password);
                 if (!tech) {
                     showToast('Incorrect technician Login ID or Password.', 'error');
                     return;
@@ -1209,7 +1313,7 @@
             names.forEach((n, idx) => { if (n.value) sites.push({ name: n.value, address: addrs[idx].value }); });
 
             const customerObj = {
-                id: editId || `CUST-${existing.reduce((max, c) => Math.max(max, parseInt(String(c.id).replace(/\D/g, ''), 10) || 0), 1000) + 1}`,
+                id: editId || `BTL${existing.reduce((max, c) => Math.max(max, parseInt(String(c.id).replace(/\D/g, ''), 10) || 0), 1000) + 1}`,
                 name: inputName, contact: document.getElementById('custContact').value, mobile: inputMobile, email: document.getElementById('custEmail').value, sites
             };
 
@@ -1282,27 +1386,65 @@
             renderCustomers();
         }
 
+        /* ================= Asset Metadata / Warranty Helpers ================= */
+        function getAssetMetadataStore() {
+            try { return JSON.parse(localStorage.getItem('btl_asset_metadata') || '{}'); } catch { return {}; }
+        }
+        function saveAssetMetadataStore(store) { localStorage.setItem('btl_asset_metadata', JSON.stringify(store)); }
+        function mergeAssetMetadata(asset) {
+            if (!asset) return asset;
+            const meta = getAssetMetadataStore()[asset.serial] || {};
+            return { ...asset, ...meta };
+        }
+        function addMonthsSafe(dateStr, months) {
+            const d = new Date(dateStr + 'T00:00:00');
+            if (isNaN(d.getTime())) return '';
+            const day = d.getDate();
+            d.setDate(1); d.setMonth(d.getMonth() + months);
+            const last = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+            d.setDate(Math.min(day, last));
+            return d.toISOString().split('T')[0];
+        }
+        function calculateWarrantyExpiry(entryDate, warranty) {
+            if (!entryDate || warranty === 'No Warranty') return '';
+            const months = {'6 Months Warranty': 6, '1 Year Warranty': 12, '2 Years Warranty': 24, '3 Years Warranty': 36}[warranty] || 0;
+            return addMonthsSafe(entryDate, months);
+        }
+        function updateAssetExpiry(el) {
+            const row = el.closest('.asset-row');
+            if (!row) return;
+            const entry = row.querySelector('.asset-entry-date')?.value || '';
+            const warranty = row.querySelector('.asset-warranty')?.value || 'No Warranty';
+            const expiry = row.querySelector('.asset-expiry');
+            if (expiry) expiry.value = calculateWarrantyExpiry(entry, warranty);
+        }
+
         /* ================= Asset Register ================= */
+        function assetRowHTML(values = {}) {
+            const category = values.category || 'CCTV & Video Surveillance';
+            const warranty = values.warrantyValidity || 'No Warranty';
+            const entryDate = values.entryDate || new Date().toISOString().split('T')[0];
+            const expiry = values.expiry || calculateWarrantyExpiry(entryDate, warranty);
+            return `<div class="asset-row">
+                <select class="asset-cat" required><option ${category==='CCTV & Video Surveillance'?'selected':''}>CCTV &amp; Video Surveillance</option><option ${category==='Access Control & Biometrics'?'selected':''}>Access Control &amp; Biometrics</option><option ${category==='Networking'?'selected':''}>Networking</option><option ${category==='Fire & Life Safety'?'selected':''}>Fire &amp; Life Safety</option></select>
+                <input type="text" class="asset-brand" required placeholder="Brand" value="${esc(values.brand || '')}">
+                <input type="text" class="asset-model" required placeholder="Model No." value="${esc(values.model || '')}">
+                <input type="text" class="asset-serial" required placeholder="Serial Number" value="${esc(values.serial || '')}">
+                <input type="date" class="asset-entry-date" required value="${esc(entryDate)}" onchange="updateAssetExpiry(this)">
+                <select class="asset-warranty" required onchange="updateAssetExpiry(this)"><option ${warranty==='No Warranty'?'selected':''}>No Warranty</option><option ${warranty==='6 Months Warranty'?'selected':''}>6 Months Warranty</option><option ${warranty==='1 Year Warranty'?'selected':''}>1 Year Warranty</option><option ${warranty==='2 Years Warranty'?'selected':''}>2 Years Warranty</option><option ${warranty==='3 Years Warranty'?'selected':''}>3 Years Warranty</option></select>
+                <input type="date" class="asset-expiry" readonly value="${esc(expiry)}">
+                <button type="button" class="btn-secondary btn-sm asset-row-remove" onclick="removeAssetRow(this)">✕</button>
+            </div>`;
+        }
+
         function addAssetRow() {
-            const container = document.getElementById('assetBatchContainer');
-            const div = document.createElement('div');
-            div.className = 'asset-row';
-            div.innerHTML = `<select class="asset-cat" required><option>CCTV &amp; Video Surveillance</option><option>Access Control &amp; Biometrics</option><option>Networking</option><option>Fire &amp; Life Safety</option></select><input type="text" class="asset-model" required placeholder="Model Name"><input type="text" class="asset-serial" required placeholder="Serial Number"><input type="date" class="asset-expiry" required><button type="button" class="btn-secondary btn-sm asset-row-remove" onclick="removeAssetRow(this)">✕</button>`;
-            container.appendChild(div);
+            document.getElementById('assetBatchContainer').insertAdjacentHTML('beforeend', assetRowHTML());
             updateAssetRemoveButtons();
         }
-
-        function removeAssetRow(btn) {
-            btn.closest('.asset-row').remove();
-            updateAssetRemoveButtons();
-        }
-
+        function removeAssetRow(btn) { btn.closest('.asset-row').remove(); updateAssetRemoveButtons(); }
         function updateAssetRemoveButtons() {
             const rows = document.querySelectorAll('#assetBatchContainer .asset-row');
-            rows.forEach(row => {
-                const btn = row.querySelector('.asset-row-remove');
-                if (btn) btn.style.display = rows.length > 1 ? 'inline-block' : 'none';
-            });
+            rows.forEach(row => { const btn = row.querySelector('.asset-row-remove'); if (btn) btn.style.display = rows.length > 1 ? 'inline-block' : 'none'; });
         }
 
         async function renderAssetsView(refreshSelects = true) {
@@ -1311,74 +1453,50 @@
                 custSelect.innerHTML = "<option value=''>-- Select Customer --</option>";
                 (await getAllRecords('customers')).forEach(c => custSelect.innerHTML += `<option value="${esc(c.name)}">${esc(c.name)}</option>`);
             }
-
-            const searchInput = document.getElementById('assetSearchInput');
-            const q = (searchInput ? searchInput.value : '').trim().toLowerCase();
-            const tbody = document.getElementById('asset-table-body');
-            tbody.innerHTML = "";
-            let list = await getAllRecords('assets');
-            if (q) list = list.filter(a => [a.serial, a.customer, a.site, a.category, a.model].some(v => String(v || '').toLowerCase().includes(q)));
-            if (list.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="6" class="empty-note">No assets found.</td></tr>`;
-                return;
-            }
-            list.forEach(a => {
-                tbody.innerHTML += `<tr><td class="mono">${esc(a.serial)}</td><td>${esc(a.customer)}</td><td>${esc(a.site)}</td><td>${esc(a.category)} - ${esc(a.model)}</td><td>${esc(a.expiry)}</td>
-                    <td class="row-actions">
-                        <button onclick="editAsset('${a.serial}')" class="btn-secondary btn-sm">Edit</button>
-                        <button onclick="deleteAsset('${a.serial}')" class="btn-danger btn-sm">Delete</button>
-                    </td></tr>`;
-            });
+            const q = (document.getElementById('assetSearchInput')?.value || '').trim().toLowerCase();
+            const tbody = document.getElementById('asset-table-body'); tbody.innerHTML = '';
+            let list = (await getAllRecords('assets')).map(mergeAssetMetadata);
+            if (q) list = list.filter(a => [a.serial,a.customer,a.site,a.category,a.brand,a.model,a.warrantyValidity].some(v => String(v||'').toLowerCase().includes(q)));
+            if (!list.length) { tbody.innerHTML = `<tr><td colspan="10" class="empty-note">No assets found.</td></tr>`; return; }
+            list.forEach(a => { tbody.innerHTML += `<tr><td class="mono">${esc(a.serial)}</td><td>${esc(a.customer)}</td><td>${esc(a.site)}</td><td>${esc(a.category)}</td><td>${esc(a.brand || '')}</td><td>${esc(a.model)}</td><td>${esc(a.entryDate || '')}</td><td>${esc(a.warrantyValidity || 'No Warranty')}</td><td>${esc(a.expiry || '')}</td><td class="row-actions"><button onclick="editAsset('${a.serial}')" class="btn-secondary btn-sm">Edit</button><button onclick="deleteAsset('${a.serial}')" class="btn-danger btn-sm">Delete</button></td></tr>`; });
         }
 
         async function populateSiteDropdownForAsset() {
             const custName = document.getElementById('assetCustSelect').value;
-            const siteSelect = document.getElementById('assetSiteSelect');
-            siteSelect.innerHTML = "<option value=''>-- Select Site --</option>";
+            const siteSelect = document.getElementById('assetSiteSelect'); siteSelect.innerHTML = "<option value=''>-- Select Site --</option>";
             const cust = (await getAllRecords('customers')).find(c => c.name === custName);
             if (cust) cust.sites.forEach(s => siteSelect.innerHTML += `<option value="${esc(s.name)}">${esc(s.name)}</option>`);
         }
 
         async function editAsset(serial) {
-            const asset = await getRecord('assets', serial);
-            if (!asset) return;
+            const asset = mergeAssetMetadata(await getRecord('assets', serial)); if (!asset) return;
             document.getElementById('editAssetSerial').value = asset.serial;
-            document.getElementById('assetCustSelect').value = asset.customer;
-            await populateSiteDropdownForAsset();
-            document.getElementById('assetSiteSelect').value = asset.site;
-
-            document.getElementById('assetBatchContainer').innerHTML = `<div class="asset-row"><select class="asset-cat" required><option>${esc(asset.category)}</option></select><input type="text" class="asset-model" required value="${esc(asset.model)}"><input type="text" class="asset-serial" required value="${esc(asset.serial)}"><input type="date" class="asset-expiry" required value="${esc(asset.expiry)}"><span></span></div>`;
-            document.getElementById('btnAddAssetRow').style.display = 'none';
-            document.getElementById('assetForm').scrollIntoView({ behavior: 'smooth', block: 'start' });
+            document.getElementById('assetCustSelect').value = asset.customer; await populateSiteDropdownForAsset(); document.getElementById('assetSiteSelect').value = asset.site;
+            document.getElementById('assetBatchContainer').innerHTML = assetRowHTML(asset);
+            document.getElementById('btnAddAssetRow').style.display = 'none'; updateAssetRemoveButtons();
+            document.getElementById('assetForm').scrollIntoView({behavior:'smooth',block:'start'});
         }
 
         function resetAssetForm() {
-            document.getElementById('assetForm').reset();
-            document.getElementById('editAssetSerial').value = "";
-            document.getElementById('assetBatchContainer').innerHTML = `<div class="asset-row"><select class="asset-cat" required><option>CCTV &amp; Video Surveillance</option><option>Access Control &amp; Biometrics</option><option>Networking</option><option>Fire &amp; Life Safety</option></select><input type="text" class="asset-model" required placeholder="Model Name"><input type="text" class="asset-serial" required placeholder="Serial Number"><input type="date" class="asset-expiry" required><button type="button" class="btn-secondary btn-sm asset-row-remove" onclick="removeAssetRow(this)" style="display:none;">✕</button></div>`;
-            document.getElementById('btnAddAssetRow').style.display = 'inline-block';
+            document.getElementById('assetForm').reset(); document.getElementById('editAssetSerial').value = '';
+            document.getElementById('assetBatchContainer').innerHTML = assetRowHTML();
+            document.getElementById('btnAddAssetRow').style.display = 'inline-block'; updateAssetRemoveButtons();
         }
 
         async function handleAssetSubmit(e) {
             e.preventDefault();
             const editSerial = document.getElementById('editAssetSerial').value;
-            const customer = document.getElementById('assetCustSelect').value;
-            const site = document.getElementById('assetSiteSelect').value;
-
-            const cats = document.querySelectorAll('.asset-cat');
-            const models = document.querySelectorAll('.asset-model');
-            const serials = document.querySelectorAll('.asset-serial');
-            const expiries = document.querySelectorAll('.asset-expiry');
-
-            if (editSerial && editSerial !== serials[0].value) await deleteRecord('assets', editSerial);
-
-            for (let i = 0; i < cats.length; i++) {
-                await putRecord('assets', { serial: serials[i].value, customer, site, category: cats[i].value, model: models[i].value, expiry: expiries[i].value });
+            const customer = document.getElementById('assetCustSelect').value, site = document.getElementById('assetSiteSelect').value;
+            const cats=document.querySelectorAll('.asset-cat'), brands=document.querySelectorAll('.asset-brand'), models=document.querySelectorAll('.asset-model'), serials=document.querySelectorAll('.asset-serial'), entries=document.querySelectorAll('.asset-entry-date'), warranties=document.querySelectorAll('.asset-warranty'), expiries=document.querySelectorAll('.asset-expiry');
+            if (editSerial && editSerial !== serials[0].value) { await deleteRecord('assets', editSerial); const meta=getAssetMetadataStore(); delete meta[editSerial]; saveAssetMetadataStore(meta); }
+            const meta = getAssetMetadataStore();
+            for (let i=0;i<cats.length;i++) {
+                const data={serial:serials[i].value,customer,site,category:cats[i].value,model:models[i].value,expiry:expiries[i].value};
+                await putRecord('assets', data);
+                meta[data.serial]={brand:brands[i].value.trim(),entryDate:entries[i].value,warrantyValidity:warranties[i].value,expiry:expiries[i].value};
             }
-            await logAuditEvent("Asset Register Updated", `Added/Updated Asset item for ${customer}`);
-            showToast('Assets saved.');
-            resetAssetForm();
-            renderAssetsView();
+            saveAssetMetadataStore(meta);
+            await logAuditEvent('Asset Register Updated', `Added/Updated Asset item for ${customer}`); showToast('Assets saved.'); resetAssetForm(); renderAssetsView();
         }
 
         async function deleteAsset(serial) {
@@ -1426,7 +1544,7 @@
         async function autoFillWarrantyInfo() {
             const serial = document.getElementById('compAssetSelect').value;
             const asset = await getRecord('assets', serial);
-            if (asset) document.getElementById('compWarrantyStatus').value = new Date(asset.expiry) > new Date() ? `Under Warranty (Expiry: ${asset.expiry})` : `Expired (${asset.expiry})`;
+            if (asset) { const a=mergeAssetMetadata(asset); document.getElementById('compWarrantyStatus').value = a.warrantyValidity === 'No Warranty' ? 'No Warranty' : (a.expiry && new Date(a.expiry) >= new Date() ? `Under Warranty (Expiry: ${a.expiry})` : `Expired (${a.expiry || 'N/A'})`); }
         }
 
         async function handleComplaintSubmit(e) {
@@ -1471,12 +1589,21 @@
             const q = (document.getElementById('ticketSearchInput')?.value || '').trim().toLowerCase();
             const statusFilter = document.getElementById('ticketStatusFilter')?.value || 'all';
             const priorityFilter = document.getElementById('ticketPriorityFilter')?.value || 'all';
+            const from = document.getElementById('ticketDateFrom')?.value || '';
+            const to = document.getElementById('ticketDateTo')?.value || '';
             return list.filter(t => {
                 if (statusFilter !== 'all' && t.status !== statusFilter) return false;
                 if (priorityFilter !== 'all' && t.priority !== priorityFilter) return false;
+                if (from && String(t.logDate || '') < from) return false;
+                if (to && String(t.logDate || '') > to) return false;
                 if (q && ![t.id, t.customer, t.site, t.serial, t.technicianName].some(v => String(v || '').toLowerCase().includes(q))) return false;
                 return true;
             });
+        }
+
+        function clearTicketFilters() {
+            ['ticketSearchInput','ticketDateFrom','ticketDateTo'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
+            document.getElementById('ticketStatusFilter').value='all'; document.getElementById('ticketPriorityFilter').value='all'; renderFilteredTickets();
         }
 
         async function renderFilteredTickets() {
@@ -1576,10 +1703,19 @@
         }
 
         /* ================= Technician Directory ================= */
+        function showTechDirectoryTab(tab) {
+            const profile=document.getElementById('techProfileTab'), password=document.getElementById('techPasswordTab');
+            if (!profile || !password) return;
+            profile.style.display = tab === 'profile' ? 'block' : 'none';
+            password.style.display = tab === 'password' ? 'block' : 'none';
+            if (tab === 'password') populatePasswordTechSelect();
+        }
+
         async function renderTechMgmtView() {
             const q = (document.getElementById('techSearchInput')?.value || '').trim().toLowerCase();
             const tbody = document.getElementById('tech-master-table-body');
             tbody.innerHTML = "";
+            populatePasswordTechSelect();
             let list = await getAllRecords('technicians');
             if (q) list = list.filter(t => { const c = TECHNICIAN_CREDENTIALS.find(x => x.id === t.id); return [t.id, t.name, t.mobile, c?.loginId, t.specialization].some(v => String(v || '').toLowerCase().includes(q)); });
             if (list.length === 0) {
@@ -1647,12 +1783,34 @@
             document.getElementById('techName').value = t.name;
             document.getElementById('techMobile').value = t.mobile || '';
             const editCreds = JSON.parse(localStorage.getItem('btl_tech_credentials') || '{}');
-            const cred = TECHNICIAN_CREDENTIALS.find(c => c.id === t.id) || editCreds[t.id] || {};
+            const baseCred = TECHNICIAN_CREDENTIALS.find(c => c.id === t.id) || {};
+            const cred = {...baseCred, ...(editCreds[t.id] || {})};
             document.getElementById('techLoginId').value = cred.loginId || t.id;
             document.getElementById('techPassword').value = cred.password || '';
             document.getElementById('techSpecialization').value = t.specialization;
             document.getElementById('techFormTitle').innerText = "Edit Technician Profile";
             document.getElementById('techMgmtForm').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        async function populatePasswordTechSelect() {
+            const select=document.getElementById('passwordTechSelect'); if(!select) return;
+            select.innerHTML='<option value="">-- Select Technician --</option>';
+            (await getAllRecords('technicians')).forEach(t=> select.innerHTML += `<option value="${esc(t.id)}">${esc(t.name)} (${esc(t.id)})</option>`);
+        }
+        async function handleTechPasswordChange(e) {
+            e.preventDefault();
+            const id=document.getElementById('passwordTechSelect').value;
+            const pw=document.getElementById('newTechPassword').value;
+            const cpw=document.getElementById('confirmTechPassword').value;
+            if(!id) return;
+            if(pw !== cpw) { showToast('Passwords do not match.','error'); return; }
+            const creds=JSON.parse(localStorage.getItem('btl_tech_credentials') || '{}');
+            const base=TECHNICIAN_CREDENTIALS.find(c=>c.id===id);
+            creds[id]={loginId:creds[id]?.loginId || base?.loginId || id,password:pw};
+            localStorage.setItem('btl_tech_credentials',JSON.stringify(creds));
+            await logAuditEvent('Technician Password Modified', `Updated portal password for Technician ${id}`);
+            showToast('Technician password updated successfully.','success');
+            document.getElementById('techPasswordForm').reset(); renderTechMgmtView();
         }
 
         async function deleteTech(id) {
@@ -1677,46 +1835,69 @@
         }
 
         /* ================= Admin Service Reports Engine ================= */
-        async function renderAdminReportsView() {
-            const select = document.getElementById('reportTicketSelect');
-            select.innerHTML = '<option value="">-- Select Ticket --</option>';
-            (await getAllRecords('tickets')).forEach(t => select.innerHTML += `<option value="${t.id}">${esc(t.id)} - ${esc(t.customer)}</option>`);
+        function adminReportDate(t) { return t.closedDate || t.updatedAt || t.logDate || ''; }
+        function switchAdminReportTab(tabId, btn) {
+            document.querySelectorAll('.admin-report-tab').forEach(el => el.style.display='none');
+            document.querySelectorAll('[data-admin-report-tab]').forEach(el => el.classList.remove('active'));
+            const tab=document.getElementById(tabId); if(tab) tab.style.display='block';
+            if(btn) btn.classList.add('active');
+            if(tabId==='admin-report-dashboard') renderAdminReportDashboard();
+            if(tabId==='admin-report-search') renderAdminReportList();
+            if(tabId==='admin-report-generate') renderAdminReportTicketSelect();
         }
-
+        async function renderAdminReportsView() {
+            await renderAdminReportDashboard();
+            await renderAdminReportList();
+            await renderAdminReportTicketSelect();
+            switchAdminReportTab('admin-report-dashboard', document.querySelector('[data-admin-report-tab="admin-report-dashboard"]'));
+        }
+        async function renderAdminReportDashboard() {
+            const list=await getAllRecords('tickets');
+            const closed=list.filter(t=>t.status==='Closed');
+            document.getElementById('adminReportTotal').textContent=list.length;
+            document.getElementById('adminReportClosed').textContent=closed.length;
+            document.getElementById('adminReportOpen').textContent=list.filter(t=>t.status!=='Closed').length;
+            document.getElementById('adminReportSpares').textContent=list.filter(t=>String(t.spares||'').trim()).length;
+            const tbody=document.getElementById('admin-report-recent-body'); tbody.innerHTML='';
+            list.sort((a,b)=>String(adminReportDate(b)).localeCompare(String(adminReportDate(a)))).slice(0,10).forEach(t=>{
+                tbody.innerHTML+=`<tr><td class="mono">${esc(t.id)}</td><td>${esc(adminReportDate(t))}</td><td>${esc(t.customer)}</td><td>${esc(t.site)}</td><td>${esc(t.technicianName||'—')}</td><td>${techStatusBadge(t.status)}</td><td><button type="button" class="btn-secondary btn-sm" onclick="switchAdminReportToGenerate('${String(t.id).replace(/'/g,"\'")}')">View</button></td></tr>`;
+            });
+            if(!tbody.innerHTML) tbody.innerHTML='<tr><td colspan="7" class="empty-note">No service reports found.</td></tr>';
+        }
+        async function renderAdminReportList() {
+            const q=(document.getElementById('adminReportSearch')?.value||'').trim().toLowerCase();
+            const from=document.getElementById('adminReportFromDate')?.value||''; const to=document.getElementById('adminReportToDate')?.value||'';
+            const tbody=document.getElementById('admin-report-list-body'); if(!tbody)return; tbody.innerHTML='';
+            let list=await getAllRecords('tickets');
+            if(q) list=list.filter(t=>[t.id,t.customer,t.site,t.serial,t.technicianId,t.technicianName,t.status,t.diagnosis,t.action,t.spares].some(v=>String(v||'').toLowerCase().includes(q)));
+            list=list.filter(t=>{const d=adminReportDate(t); return (!from||d>=from)&&(!to||d<=to);});
+            list.sort((a,b)=>String(adminReportDate(b)).localeCompare(String(adminReportDate(a))));
+            list.forEach(t=>tbody.innerHTML+=`<tr><td class="mono">${esc(t.id)}</td><td>${esc(adminReportDate(t))}</td><td>${esc(t.customer)}</td><td>${esc(t.site)}</td><td class="mono">${esc(t.serial)}</td><td>${esc(t.technicianName||t.technicianId||'—')}</td><td>${techStatusBadge(t.status)}</td><td><button type="button" class="btn-secondary btn-sm" onclick="switchAdminReportToGenerate('${String(t.id).replace(/'/g,"\'")}')">View</button></td></tr>`);
+            if(!list.length) tbody.innerHTML='<tr><td colspan="8" class="empty-note">No matching service reports found.</td></tr>';
+        }
+        function clearAdminReportFilters(){ ['adminReportSearch','adminReportFromDate','adminReportToDate'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';}); renderAdminReportList(); }
+        async function switchAdminReportToGenerate(id){
+            switchAdminReportTab('admin-report-generate', document.querySelector('[data-admin-report-tab="admin-report-generate"]'));
+            const select=document.getElementById('reportTicketSelect'); select.value=id; await renderAdminReport();
+        }
+        async function renderAdminReportTicketSelect() {
+            const select=document.getElementById('reportTicketSelect'); if(!select)return; const current=select.value;
+            select.innerHTML='<option value="">-- Select Ticket --</option>';
+            const list=await getAllRecords('tickets'); list.sort((a,b)=>String(adminReportDate(b)).localeCompare(String(adminReportDate(a))));
+            list.forEach(t=>select.innerHTML+=`<option value="${esc(t.id)}">${esc(t.id)} - ${esc(t.customer)} - ${esc(t.status)}</option>`);
+            if(list.some(t=>t.id===current)) select.value=current;
+        }
         async function renderAdminReport() {
             const id = document.getElementById('reportTicketSelect').value;
             const container = document.getElementById('reportRenderContainer');
             if (!id) { container.innerHTML = `<p style="color:var(--muted);">Select a ticket above.</p>`; return; }
-
-            const t = await getRecord('tickets', id);
-            const asset = await getRecord('assets', t.serial);
-
+            const t = await getRecord('tickets', id); const asset = await getRecord('assets', t.serial);
             container.innerHTML = `
-                <header>
-                    <h2>SERVICE CALL REPORT — BTL CMS</h2>
-                    <p><strong>Ticket Reference:</strong> ${esc(t.id)} | <strong>Date Logged:</strong> ${esc(t.logDate)}</p>
-                </header>
-                <div class="form-grid" style="margin-bottom: 1rem;">
-                    <div><strong>Customer Name:</strong> ${esc(t.customer)}<br><strong>Site Address:</strong> ${esc(t.site)}</div>
-                    <div><strong>Asset Serial:</strong> ${esc(t.serial)}<br><strong>Category &amp; Model:</strong> ${asset ? esc(asset.category) + ' - ' + esc(asset.model) : 'N/A'}</div>
-                </div>
-                <hr><br>
-                <p><strong>Fault Reported:</strong> ${esc(t.description)}</p>
-                <p><strong>Technical Diagnosis:</strong> ${esc(t.diagnosis) || 'N/A'}</p>
-                <p><strong>Action Taken:</strong> ${esc(t.action) || 'N/A'}</p>
-                <p><strong>Spares Used:</strong> ${esc(t.spares) || 'None Required'}</p>
-                <p><strong>Call Status:</strong> <strong>${esc(t.status)}</strong></p>
-                <br>
-                <div class="form-grid">
-                    <div><strong>Issue Image Proof:</strong><br>${t.issueImg ? `<img src="${t.issueImg}">` : 'No Image Attached'}</div>
-                    <div><strong>Resolution Image Proof:</strong><br>${t.fixImg ? `<img src="${t.fixImg}">` : 'No Image Attached'}</div>
-                </div>
-                <br><br>
-                <div class="form-grid" style="border-top: 1px dashed #ccc; padding-top: 1rem;">
-                    <div><strong>Technician Signature</strong><br>${esc(t.technicianName)} (${esc(t.technicianId)})</div>
-                    <div><strong>Customer Verification Status</strong><br>${t.status === 'Closed' ? 'Verified via Happiness OTP' : 'Pending Customer Signoff'}</div>
-                </div>
-            `;
+                <header><h2>SERVICE CALL REPORT — BTL CMS</h2><p><strong>Ticket Reference:</strong> ${esc(t.id)} | <strong>Service Date:</strong> ${esc(adminReportDate(t))}</p></header>
+                <div class="form-grid" style="margin-bottom:1rem;"><div><strong>Customer Name:</strong> ${esc(t.customer)}<br><strong>Site Address:</strong> ${esc(t.site)}</div><div><strong>Asset Serial:</strong> ${esc(t.serial)}<br><strong>Category &amp; Model:</strong> ${asset ? esc(asset.category)+' - '+esc(asset.model) : 'N/A'}</div></div>
+                <hr><br><p><strong>Fault Reported:</strong> ${esc(t.description)}</p><p><strong>Technical Diagnosis:</strong> ${esc(t.diagnosis)||'N/A'}</p><p><strong>Action Taken:</strong> ${esc(t.action)||'N/A'}</p><p><strong>Spares Used:</strong> ${esc(t.spares)||'None Required'}</p><p><strong>Call Status:</strong> <strong>${esc(t.status)}</strong></p><br>
+                <div class="form-grid"><div><strong>Issue Image Proof:</strong><br>${t.issueImg?`<img src="${t.issueImg}">`:'No Image Attached'}</div><div><strong>Resolution Image Proof:</strong><br>${t.fixImg?`<img src="${t.fixImg}">`:'No Image Attached'}</div></div><br><br>
+                <div class="form-grid" style="border-top:1px dashed #ccc;padding-top:1rem;"><div><strong>Technician</strong><br>${esc(t.technicianName||'—')} (${esc(t.technicianId||'—')})</div><div><strong>Customer Verification Status</strong><br>${t.status==='Closed'?'Verified via Happiness OTP':'Pending Customer Signoff'}</div></div>`;
         }
 
         /* ================= Audit Logs View ================= */
@@ -1736,37 +1917,72 @@
         }
 
         /* ================= Field Technician Mobile App ================= */
-        function toggleSparesHighlight() {
-            const chk = document.getElementById('chkSparesRequired');
-            document.getElementById('sparesContainer').style.display = chk.checked ? 'block' : 'none';
+        function switchTechTab(tabId, btn) {
+            document.querySelectorAll('.tech-app-tab').forEach(el => el.style.display = 'none');
+            document.querySelectorAll('[data-tech-tab]').forEach(el => el.classList.remove('active'));
+            if (btn) btn.classList.add('active');
+            const tab = document.getElementById(tabId);
+            if (tab) tab.style.display = 'block';
+            if (tabId === 'tech-dashboard') renderTechDashboard();
+            if (tabId === 'tech-open') renderTechOpenComplaints();
+            if (tabId === 'tech-closed') renderTechClosedComplaints();
+            if (tabId === 'tech-reports') renderTechServiceReports();
         }
 
-        function toggleHappinessCodeRequirement() {
-            const status = document.getElementById('techCallStatus').value;
-            document.getElementById('happinessCodeBox').style.display = status === 'Closed' ? 'block' : 'none';
+        function techMine(t) { return currentTechnicianId && t.technicianId === currentTechnicianId; }
+
+        function techDate(t) { return t.closedDate || t.updatedAt || t.logDate || ''; }
+
+        function techStatusBadge(status) {
+            return `<span class="badge">${esc(status || '—')}</span>`;
         }
 
-        async function renderTechAppView() {
-            const select = document.getElementById('techTicketSelect');
-            select.innerHTML = '<option value="">-- Select Ticket --</option>';
-            (await getAllRecords('tickets')).filter(t => t.status !== 'Closed' && t.technicianId === currentTechnicianId).forEach(t => {
-                select.innerHTML += `<option value="${t.id}">${esc(t.id)} - ${esc(t.customer)}</option>`;
+        async function renderTechDashboard() {
+            const all = (await getAllRecords('tickets')).filter(techMine);
+            const open = all.filter(t => t.status !== 'Closed');
+            const closed = all.filter(t => t.status === 'Closed');
+            const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+            set('techStatTotal', all.length); set('techStatOpen', open.length);
+            set('techStatSpares', open.filter(t => String(t.status).toLowerCase() === 'pending for spares').length);
+            set('techStatSupport', open.filter(t => String(t.status).toLowerCase() === 'pending for tech support').length);
+            set('techStatApproval', open.filter(t => String(t.status).toLowerCase() === 'pending for customer approval').length);
+            set('techStatClosed', closed.length);
+            const tbody = document.getElementById('tech-dashboard-table-body'); tbody.innerHTML = '';
+            all.sort((a,b) => String(b.logDate||'').localeCompare(String(a.logDate||''))).slice(0,50).forEach(t => {
+                tbody.innerHTML += `<tr><td class="mono">${esc(t.id)}</td><td>${esc(t.logDate)}</td><td>${esc(t.customer)}</td><td>${esc(t.site)}</td><td class="mono">${esc(t.serial)}</td><td>${techStatusBadge(t.status)}</td><td>${esc(t.visitDate || '—')}</td></tr>`;
             });
+            if (!all.length) tbody.innerHTML = '<tr><td colspan="7" class="empty-note">No complaints are assigned to you.</td></tr>';
+            const badge = document.getElementById('techPortalUserBadge'); if (badge) badge.textContent = currentTechnicianId || 'Technician';
+        }
+
+        async function renderTechOpenComplaints() {
+            const select = document.getElementById('techTicketSelect');
+            const current = select.value; select.innerHTML = '<option value="">-- Select Ticket --</option>';
+            const list = (await getAllRecords('tickets')).filter(t => techMine(t) && t.status !== 'Closed');
+            list.sort((a,b) => String(b.logDate||'').localeCompare(String(a.logDate||''))).forEach(t => {
+                select.innerHTML += `<option value="${esc(t.id)}">${esc(t.id)} - ${esc(t.customer)} - ${esc(t.status)}</option>`;
+            });
+            if (list.some(t => t.id === current)) select.value = current;
             toggleHappinessCodeRequirement();
+            if (!select.value && list.length) select.value = list[0].id;
+            if (select.value) loadTechAppTicketDetails();
         }
 
         async function loadTechAppTicketDetails() {
             const id = document.getElementById('techTicketSelect').value;
             const t = await getRecord('tickets', id);
-            if (t) {
-                document.getElementById('techDiagnosis').value = t.diagnosis || '';
-                document.getElementById('techAction').value = t.action || '';
-                document.getElementById('techSpares').value = t.spares || '';
-                if (t.spares) {
-                    document.getElementById('chkSparesRequired').checked = true;
-                    toggleSparesHighlight();
-                }
-            }
+            const info = document.getElementById('techSelectedComplaint');
+            if (!t || !techMine(t)) { info.style.display='none'; return; }
+            info.style.display='block';
+            info.innerHTML = `<h3>Complaint Details</h3><div class="form-grid"><div><strong>Ticket:</strong> ${esc(t.id)}<br><strong>Date:</strong> ${esc(t.logDate)}<br><strong>Customer:</strong> ${esc(t.customer)}<br><strong>Site:</strong> ${esc(t.site)}</div><div><strong>Asset Serial:</strong> ${esc(t.serial)}<br><strong>Priority:</strong> ${esc(t.priority)}<br><strong>Coverage:</strong> ${esc(t.coverage)}<br><strong>Status:</strong> ${techStatusBadge(t.status)}<br><strong>Visit:</strong> ${esc(t.visitDate || '—')} ${esc(t.visitTime || '')}</div></div><hr><p><strong>Complaint:</strong> ${esc(t.description || '—')}</p>`;
+            document.getElementById('techDiagnosis').value = t.diagnosis || '';
+            document.getElementById('techAction').value = t.action || '';
+            document.getElementById('techSpares').value = t.spares || '';
+            document.getElementById('chkSparesRequired').checked = !!t.spares;
+            document.getElementById('techCallStatus').value = t.status === 'Assigned' || t.status === 'Unassigned' ? 'Closed' : t.status;
+            document.getElementById('techHappinessCode').value = '';
+            document.getElementById('issueImgBase64').value = ''; document.getElementById('fixImgBase64').value = '';
+            toggleSparesHighlight(); toggleHappinessCodeRequirement();
         }
 
         async function handleTechAppSubmit(e) {
@@ -1774,32 +1990,68 @@
             const id = document.getElementById('techTicketSelect').value;
             const statusSelection = document.getElementById('techCallStatus').value;
             const ticket = await getRecord('tickets', id);
-
-            if (!ticket) { showToast('Please select a ticket first.', 'error'); return; }
-
+            if (!ticket || !techMine(ticket)) { showToast('Please select one of your assigned complaints.', 'error'); return; }
             if (statusSelection === 'Closed') {
                 const enteredCode = document.getElementById('techHappinessCode').value.trim();
-                if (enteredCode !== ticket.happinessCode) {
-                    showToast(`Invalid Happiness Code. "${enteredCode}" does not match the customer OTP.`, 'error');
-                    return;
-                }
+                if (enteredCode !== ticket.happinessCode) { showToast('Invalid Happiness Code. Please enter the code provided by the customer.', 'error'); return; }
+                ticket.closedDate = new Date().toISOString().split('T')[0];
             }
-
             ticket.diagnosis = document.getElementById('techDiagnosis').value;
             ticket.action = document.getElementById('techAction').value;
             ticket.spares = document.getElementById('chkSparesRequired').checked ? document.getElementById('techSpares').value : '';
             ticket.status = statusSelection;
             ticket.issueImg = document.getElementById('issueImgBase64').value || ticket.issueImg;
             ticket.fixImg = document.getElementById('fixImgBase64').value || ticket.fixImg;
-
+            ticket.updatedAt = new Date().toISOString();
             await putRecord('tickets', ticket);
-            await logAuditEvent("Field Service Update", `Technician updated ${ticket.id}. Status set to ${ticket.status}`);
-
+            await logAuditEvent('Field Service Update', `Technician ${currentTechnicianId} updated ${ticket.id}. Status set to ${ticket.status}`);
             showToast(statusSelection === 'Closed' ? `Call closed — Happiness Code verified for ${ticket.id}.` : `Service call updated. Status: ${ticket.status}`);
+            document.getElementById('techAppForm').reset(); toggleSparesHighlight();
+            renderTechDashboard(); renderTechOpenComplaints();
+        }
 
-            document.getElementById('techAppForm').reset();
-            toggleSparesHighlight();
-            renderTechAppView();
+        async function renderTechClosedComplaints() {
+            const q = (document.getElementById('techClosedSearch')?.value || '').trim().toLowerCase();
+            const tbody = document.getElementById('tech-closed-table-body'); tbody.innerHTML='';
+            let list = (await getAllRecords('tickets')).filter(t => techMine(t) && t.status === 'Closed');
+            if (q) list = list.filter(t => [t.id,t.customer,t.site,t.serial,t.diagnosis,t.action].some(v => String(v||'').toLowerCase().includes(q)));
+            list.sort((a,b) => String(b.closedDate||b.logDate||'').localeCompare(String(a.closedDate||a.logDate||'')));
+            list.forEach(t => { tbody.innerHTML += `<tr><td class="mono">${esc(t.id)}</td><td>${esc(t.closedDate || t.logDate)}</td><td>${esc(t.customer)}</td><td>${esc(t.site)}</td><td class="mono">${esc(t.serial)}</td><td>${esc(t.diagnosis||'—')}</td><td>${esc(t.action||'—')}</td><td><button type="button" class="btn-secondary btn-sm" onclick="showTechServiceReport('${String(t.id).replace(/'/g,"\'")}')">View</button></td></tr>`; });
+            if (!list.length) tbody.innerHTML='<tr><td colspan="8" class="empty-note">No closed complaints found.</td></tr>';
+        }
+
+        async function renderTechServiceReports() {
+            const q=(document.getElementById('techReportSearch')?.value||'').trim().toLowerCase();
+            const from=document.getElementById('techReportFromDate')?.value||''; const to=document.getElementById('techReportToDate')?.value||'';
+            const tbody=document.getElementById('tech-report-table-body'); tbody.innerHTML='';
+            let list=(await getAllRecords('tickets')).filter(t=>techMine(t));
+            if(q) list=list.filter(t=>[t.id,t.customer,t.site,t.serial,t.status,t.diagnosis,t.action,t.spares].some(v=>String(v||'').toLowerCase().includes(q)));
+            list=list.filter(t=>{const d=techDate(t); return (!from||d>=from)&&(!to||d<=to);});
+            list.sort((a,b)=>String(techDate(b)).localeCompare(String(techDate(a))));
+            list.forEach(t=>{tbody.innerHTML+=`<tr><td class="mono">${esc(t.id)}</td><td>${esc(techDate(t))}</td><td>${esc(t.customer)}</td><td>${esc(t.site)}</td><td class="mono">${esc(t.serial)}</td><td>${techStatusBadge(t.status)}</td><td>${esc(t.diagnosis||'—')}</td><td>${esc(t.action||'—')}</td><td><button type="button" class="btn-secondary btn-sm" onclick="showTechServiceReport('${String(t.id).replace(/'/g,"\'")}')">View</button></td></tr>`;});
+            if(!list.length) tbody.innerHTML='<tr><td colspan="9" class="empty-note">No service reports found for the selected filters.</td></tr>';
+        }
+
+        function clearTechReportFilters(){ ['techReportSearch','techReportFromDate','techReportToDate'].forEach(id=>document.getElementById(id).value=''); document.getElementById('techServiceReportPreview').style.display='none'; renderTechServiceReports(); }
+
+        async function showTechServiceReport(id){
+            const t=await getRecord('tickets',id); if(!t||!techMine(t)) return;
+            const asset=await getRecord('assets',t.serial); const box=document.getElementById('techServiceReportPreview');
+            box.style.display='block';
+            box.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;gap:1rem;"><h3>Service Call Report</h3><button type="button" class="btn-secondary btn-sm" onclick="document.getElementById('techServiceReportPreview').style.display='none'">Close</button></div><p><strong>Ticket:</strong> ${esc(t.id)} &nbsp; <strong>Service Date:</strong> ${esc(techDate(t))}</p><div class="form-grid"><div><strong>Customer:</strong> ${esc(t.customer)}<br><strong>Site:</strong> ${esc(t.site)}<br><strong>Asset:</strong> ${esc(t.serial)}</div><div><strong>Brand:</strong> ${esc(asset?.brand||'—')}<br><strong>Model No.:</strong> ${esc(asset?.model||'—')}<br><strong>Status:</strong> ${techStatusBadge(t.status)}</div></div><hr><p><strong>Complaint:</strong> ${esc(t.description||'—')}</p><p><strong>Diagnosis:</strong> ${esc(t.diagnosis||'—')}</p><p><strong>Action Taken:</strong> ${esc(t.action||'—')}</p><p><strong>Spares:</strong> ${esc(t.spares||'None')}</p>`;
+            box.scrollIntoView({behavior:'smooth',block:'nearest'});
+        }
+
+        function toggleSparesHighlight() {
+            const chk=document.getElementById('chkSparesRequired'); document.getElementById('sparesContainer').style.display=chk.checked?'block':'none';
+        }
+        function toggleHappinessCodeRequirement() {
+            const status=document.getElementById('techCallStatus').value; document.getElementById('happinessCodeBox').style.display=status==='Closed'?'block':'none';
+        }
+
+        async function renderTechAppView() {
+            switchTechTab('tech-dashboard', document.querySelector('[data-tech-tab="tech-dashboard"]'));
+            toggleSparesHighlight(); toggleHappinessCodeRequirement();
         }
 
         window.addEventListener('DOMContentLoaded', async () => {
