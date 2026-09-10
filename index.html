@@ -16,6 +16,7 @@
             --muted: #64748b;
             --bg: #eef1f6;
             --surface: #ffffff;
+            --surface-2: #f6f8fb;
             --border: #dde3ec;
             --border-strong: #c7d0dd;
 
@@ -213,7 +214,7 @@
         .app-tabs { display:flex; gap:.35rem; flex-wrap:wrap; margin:1rem 0 1.25rem; padding:.35rem; background:var(--bg); border:1px solid var(--border); border-radius:var(--radius); }
         .app-tab-btn { flex:1 1 150px; border:0; background:transparent; color:var(--muted); padding:.65rem .8rem; border-radius:7px; cursor:pointer; font-weight:700; font-size:.82rem; }
         .app-tab-btn:hover { background:white; color:var(--ink); }
-        .app-tab-btn.active { background:var(--brand); color:white; box-shadow:var(--shadow); }
+        .app-tab-btn.active { background:var(--brand); color:white; box-shadow:var(--shadow-1); }
         .report-metrics { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:1rem; margin-bottom:1rem; }
         @media (max-width: 800px) { .report-metrics { grid-template-columns:repeat(2,minmax(0,1fr)); } }
         @media (max-width: 520px) { .report-metrics { grid-template-columns:1fr; } }
@@ -660,13 +661,13 @@
                     </div>
                     <div id="techProfileTab">
                     <div class="card">
-                        <h3 id="techFormTitle">Add Technician Manually</h3><br>
+                        <h3 id="techFormTitle">Add Technician Manually</h3><p class="lede" style="margin-bottom:0.75rem;">Creates a directory entry and a real login account (Login ID = Technician ID).</p>
                         <form id="techMgmtForm" onsubmit="handleTechMgmtSubmit(event)">
                             <input type="hidden" id="editTechMode" value="false">
                             <div class="form-grid">
                                 <div class="form-group">
-                                    <label for="techIdInput">Technician ID (Manual Entry)</label>
-                                    <input type="text" id="techIdInput" required placeholder="e.g. TECH-105">
+                                    <label for="techIdInput">Technician ID (Login ID)</label>
+                                    <input type="text" id="techIdInput" required placeholder="e.g. BT-1250">
                                 </div>
                                 <div class="form-group">
                                     <label for="techName">Full Name</label>
@@ -676,13 +677,9 @@
                                     <label for="techMobile">Mobile Number</label>
                                     <input type="tel" id="techMobile" placeholder="+91 9876543210">
                                 </div>
-                                <div class="form-group">
-                                    <label for="techLoginId">Login ID</label>
-                                    <input type="text" id="techLoginId" required placeholder="Employee Code / Login ID">
-                                </div>
-                                <div class="form-group">
-                                    <label for="techPassword">Password</label>
-                                    <input type="password" id="techPassword" required placeholder="Password">
+                                <div class="form-group" id="techPasswordGroup">
+                                    <label for="techPassword">Initial Login Password</label>
+                                    <input type="password" id="techPassword" placeholder="Set on creation — use Password Modification tab to change later">
                                 </div>
                                 <div class="form-group">
                                     <label for="techSpecialization">Specialization Domain</label>
@@ -719,7 +716,7 @@
                     </div>
                     <div class="table-scroll">
                         <table>
-                            <thead><tr><th>Tech ID</th><th>Name</th><th>Mobile</th><th>Login ID</th><th>Password</th><th>Specialization</th><th>Actions</th></tr></thead>
+                            <thead><tr><th>Tech ID</th><th>Name</th><th>Mobile</th><th>Specialization</th><th>Actions</th></tr></thead>
                             <tbody id="tech-master-table-body"></tbody>
                         </table>
                     </div>
@@ -952,41 +949,41 @@
         let confirmResolver = null;
         let currentTechnicianId = null;
 
-        // Technician login credentials supplied for the BTL CMS field team.
-        // For production, store passwords as salted hashes in a server-side auth system.
-        const TECHNICIAN_CREDENTIALS = [
-            ["MANDAPATIASHOK","BT-1008","BT-1008","MANDAPAT"],
-            ["HARIJANPEDDINTINARASIMHLU","BT-1017","BT-1017","HARIJANP"],
-            ["AMALAPURAPUMANIKANTA","BT-1011","BT-1011","AMALAPUR"],
-            ["AINENIBHASKARREDDY","BT-1071","BT-1071","AINENIBH"],
-            ["GANDIBOINADURGAPRASAD","BT-873","BT-873","GANDIBOI"],
-            ["SRINIVASREDDY","BT-1128","BT-1128","SRINIVAS"],
-            ["MDZAKIUDDIN","BT-1136","BT-1136","MDZAKIUD"],
-            ["SAHIL","BT-1154","BT-1154","SAHIL"],
-            ["KALIGALASAIPRASAD","BT-1175","BT-1175","KALIGALA"],
-            ["MOHAMMADWAJID","BT-861","BT-861","MOHAMMAD"],
-            ["DURGABABU","BT-1202","BT-1202","DURGABAB"],
-            ["SHAIKCHANDBASHA","BT-1178","BT-1178","SHAIKCHA"],
-            ["RAJESHKOTHAPALLI","BT-1193","BT-1193","RAJESHKO"],
-            ["SUNILKUMAR","BT-1210","BT-1210","SUNILKUM"],
-            ["RAJULANAVEEN","BT-1069","BT-1069","RAJULANA"]
-        ].map(([name, employeeCode, loginId, password]) => ({name, id: employeeCode, loginId, password}));
+        // The BTL field team's technician IDs — used only to backfill the technicians directory
+        // on first boot. Real login credentials live in Supabase Auth (see admin_create_technician_login),
+        // never in client-side source.
+        const TECHNICIAN_ROSTER = [
+            ["MANDAPATIASHOK", "BT-1008"], ["HARIJANPEDDINTINARASIMHLU", "BT-1017"], ["AMALAPURAPUMANIKANTA", "BT-1011"],
+            ["AINENIBHASKARREDDY", "BT-1071"], ["GANDIBOINADURGAPRASAD", "BT-873"], ["SRINIVASREDDY", "BT-1128"],
+            ["MDZAKIUDDIN", "BT-1136"], ["SAHIL", "BT-1154"], ["KALIGALASAIPRASAD", "BT-1175"],
+            ["MOHAMMADWAJID", "BT-861"], ["DURGABABU", "BT-1202"], ["SHAIKCHANDBASHA", "BT-1178"],
+            ["RAJESHKOTHAPALLI", "BT-1193"], ["SUNILKUMAR", "BT-1210"], ["RAJULANAVEEN", "BT-1069"]
+        ].map(([name, id]) => ({ name, id }));
 
         /* Store → Postgres table + primary key mapping */
         const STORE_TABLE = { customers: 'customers', technicians: 'technicians', assets: 'assets', tickets: 'tickets', auditLogs: 'audit_logs' };
         const PK = { customers: 'id', technicians: 'id', assets: 'serial', tickets: 'id', auditLogs: 'id' };
-        const DATE_FIELDS = new Set(['log_date', 'expiry', 'visit_date']);
+        const DATE_FIELDS = new Set(['log_date', 'expiry', 'visit_date', 'entry_date', 'payment_received_date', 'closed_date']);
+        const NUMERIC_FIELDS = new Set(['service_charge', 'quotation_amount', 'payment_amount_collected']);
 
         /* camelCase JS field ↔ snake_case Postgres column, per store */
         const FIELD_MAP = {
             customers: { id: 'id', name: 'name', contact: 'contact', mobile: 'mobile', email: 'email', sites: 'sites' },
             technicians: { id: 'id', name: 'name', mobile: 'mobile', specialization: 'specialization' },
-            assets: { serial: 'serial', customer: 'customer', site: 'site', category: 'category', model: 'model', expiry: 'expiry' },
+            assets: { serial: 'serial', customer: 'customer', site: 'site', category: 'category', brand: 'brand', model: 'model', entryDate: 'entry_date', warrantyValidity: 'warranty_validity', expiry: 'expiry' },
             tickets: {
                 id: 'id', logDate: 'log_date', customer: 'customer', site: 'site', serial: 'serial', coverage: 'coverage',
                 priority: 'priority', description: 'description', status: 'status', technicianId: 'technician_id',
                 technicianName: 'technician_name', happinessCode: 'happiness_code', visitDate: 'visit_date', visitTime: 'visit_time',
-                diagnosis: 'diagnosis', action: 'action', spares: 'spares', issueImg: 'issue_img', fixImg: 'fix_img'
+                diagnosis: 'diagnosis', action: 'action', spares: 'spares', issueImg: 'issue_img', fixImg: 'fix_img',
+                requestType: 'request_type', contact: 'contact', equipmentDetails: 'equipment_details', chargeable: 'chargeable',
+                serviceCharge: 'service_charge', quotationAmount: 'quotation_amount', invoiceNumber: 'invoice_number',
+                paymentStatus: 'payment_status', paymentReceivedDate: 'payment_received_date', paymentRemarks: 'payment_remarks',
+                customerRemarks: 'customer_remarks', technicianRemarks: 'technician_remarks', customerFeedback: 'customer_feedback',
+                satisfactionRating: 'satisfaction_rating', supportingFiles: 'supporting_files',
+                paymentCollectionStatus: 'payment_collection_status', paymentAmountCollected: 'payment_amount_collected',
+                paymentMode: 'payment_mode', paymentReference: 'payment_reference', paymentCollectorRemarks: 'payment_collector_remarks',
+                closedDate: 'closed_date', updatedAt: 'updated_at', assignmentHistory: 'assignment_history'
             },
             auditLogs: { id: 'id', timestamp: 'timestamp', user: 'user', title: 'title', details: 'details' }
         };
@@ -997,18 +994,22 @@
                 if (obj[jsKey] === undefined) continue;
                 if (jsKey === 'id' && store === 'auditLogs') continue; // server-generated identity column
                 let val = obj[jsKey];
-                if (val === '' && DATE_FIELDS.has(dbKey)) val = null; // empty string is not a valid Postgres date
+                if (val === '' && (DATE_FIELDS.has(dbKey) || NUMERIC_FIELDS.has(dbKey))) val = null; // empty string isn't valid for date/numeric columns
                 row[dbKey] = val;
             }
             return row;
         }
+
+        const ARRAY_FIELDS = new Set(['sites', 'supportingFiles', 'assignmentHistory']);
 
         function fromDbRow(store, row) {
             if (!row) return null;
             const obj = {};
             for (const [jsKey, dbKey] of Object.entries(FIELD_MAP[store])) {
                 let val = row[dbKey];
-                if (val === null || val === undefined) val = (jsKey === 'sites') ? [] : '';
+                if (val === null || val === undefined) {
+                    val = ARRAY_FIELDS.has(jsKey) ? [] : (jsKey === 'chargeable' ? false : '');
+                }
                 obj[jsKey] = val;
             }
             return obj;
@@ -1024,14 +1025,14 @@
             const orderCol = store === 'auditLogs' ? 'id' : 'created_at';
             const { data, error } = await sb.from(table).select('*').order(orderCol, { ascending: true });
             if (error) { reportDbError('Load', error); return []; }
-            return (data || []).map(row => { const obj = fromDbRow(store, row); if(store === 'assets') return mergeAssetMetadata(obj); if(store === 'tickets') return mergeTicketMetadata(obj); return obj; });
+            return (data || []).map(row => fromDbRow(store, row));
         }
 
         async function getRecord(store, key) {
             const table = STORE_TABLE[store];
             const { data, error } = await sb.from(table).select('*').eq(PK[store], key).maybeSingle();
             if (error) { reportDbError('Load', error); return null; }
-            const obj = fromDbRow(store, data); if(store === 'assets') return mergeAssetMetadata(obj); if(store === 'tickets') return mergeTicketMetadata(obj); return obj;
+            return fromDbRow(store, data);
         }
 
         async function getCount(store) {
@@ -1073,13 +1074,13 @@
                 });
             }
             if (await getCount('technicians') === 0) {
-                for (const t of TECHNICIAN_CREDENTIALS) {
+                for (const t of TECHNICIAN_ROSTER) {
                     await addRecord('technicians', { id: t.id, name: t.name, mobile: "", specialization: "CCTV & Surveillance" });
                 }
             } else {
                 // Add the supplied field team without deleting existing technicians.
                 const existing = await getAllRecords('technicians');
-                for (const t of TECHNICIAN_CREDENTIALS) {
+                for (const t of TECHNICIAN_ROSTER) {
                     if (!existing.some(x => String(x.id).toLowerCase() === t.id.toLowerCase())) {
                         await addRecord('technicians', { id: t.id, name: t.name, mobile: "", specialization: "CCTV & Surveillance" });
                     }
@@ -1214,7 +1215,7 @@
             const t=await getRecord('tickets',ticketId); if(!t)return;
             if(t.status==='Closed'){showToast('Closed complaints cannot be deleted from the ledger.','error');return;}
             const ok=await askConfirm(`Delete complaint ${ticketId}? This action cannot be undone.`,'Delete Complaint'); if(!ok)return;
-            await deleteRecord('tickets',ticketId); const store=getTicketMetadataStore(); delete store[ticketId]; saveTicketMetadataStore(store); await logAuditEvent('Complaint Deleted',`Deleted Ticket ${ticketId} for ${t.customer}`); showToast(`Complaint ${ticketId} deleted.`); closeComplaintModal(); renderFilteredTickets(); renderAssignTechView();
+            await deleteRecord('tickets',ticketId); await logAuditEvent('Complaint Deleted',`Deleted Ticket ${ticketId} for ${t.customer}`); showToast(`Complaint ${ticketId} deleted.`); closeComplaintModal(); renderFilteredTickets(); renderAssignTechView();
         }
 
         function closeComplaintModal() {
@@ -1234,67 +1235,68 @@
             passField.value = '';
             if (mode === 'staff') {
                 label.innerText = 'Email';
-                userField.type = 'text';
                 userField.placeholder = 'you@company.com';
                 hint.innerText = 'Staff Portal uses your real Supabase account.';
             } else {
-                label.innerText = 'Username';
-                userField.type = 'text';
-                userField.placeholder = 'tech';
-                userField.value = 'tech';
+                label.innerText = 'Login ID';
+                userField.placeholder = 'e.g. BT-1008';
                 hint.innerText = 'Use your assigned Technician Login ID and Password.';
             }
         }
 
+        async function enterStaffPortal(user) {
+            currentRole = 'staff';
+            currentTechnicianId = null;
+            const displayName = user.user_metadata?.name || user.email;
+            document.getElementById('currentUserName').innerText = displayName;
+            document.getElementById('currentUserRole').innerText = 'Manager';
+            document.querySelectorAll('.staff-only').forEach(el => el.style.display = 'flex');
+            document.querySelectorAll('.tech-only').forEach(el => el.style.display = 'none');
+            document.getElementById('loginOverlay').style.display = 'none';
+            switchView('dashboard', document.querySelector('.nav-item.staff-only'));
+        }
+
+        async function enterTechPortal(user) {
+            currentRole = 'tech';
+            currentTechnicianId = user.user_metadata?.employee_code || '';
+            const techProfile = currentTechnicianId ? await getRecord('technicians', currentTechnicianId) : null;
+            document.getElementById('currentUserName').innerText = techProfile?.name || user.user_metadata?.name || user.email;
+            document.getElementById('currentUserRole').innerText = `Field Technician · ${currentTechnicianId || ''}`;
+            document.querySelectorAll('.staff-only').forEach(el => el.style.display = 'none');
+            document.querySelectorAll('.tech-only').forEach(el => el.style.display = 'flex');
+            document.getElementById('loginOverlay').style.display = 'none';
+            switchView('technician-portal', document.querySelector('.nav-item.tech-only'));
+        }
+
         async function handleLogin(e) {
             e.preventDefault();
-            const username = document.getElementById('loginUsername').value.trim();
+            const usernameRaw = document.getElementById('loginUsername').value.trim();
             const password = document.getElementById('loginPassword').value;
             const submitBtn = document.getElementById('loginSubmitBtn');
 
-            if (loginMode === 'staff') {
-                submitBtn.disabled = true;
-                submitBtn.innerText = 'Signing in…';
-                const { data, error } = await sb.auth.signInWithPassword({ email: username, password });
-                submitBtn.disabled = false;
-                submitBtn.innerText = 'Sign in';
-                if (error) {
-                    showToast(error.message === 'Invalid login credentials' ? 'Incorrect email or password.' : error.message, 'error');
-                    return;
-                }
-                currentRole = 'staff';
-                const displayName = data.user.user_metadata?.name || data.user.email;
-                document.getElementById('currentUserName').innerText = displayName;
-                document.getElementById('currentUserRole').innerText = 'Manager';
-                document.querySelectorAll('.staff-only').forEach(el => el.style.display = 'flex');
-                document.querySelectorAll('.tech-only').forEach(el => el.style.display = 'none');
-                document.getElementById('loginOverlay').style.display = 'none';
-                switchView('dashboard', document.querySelector('.nav-item.staff-only'));
-                showToast(`Signed in as ${displayName}`, 'success');
-            } else {
-                const customCreds = JSON.parse(localStorage.getItem('btl_tech_credentials') || '{}');
-                const mergedCreds = TECHNICIAN_CREDENTIALS.map(t => ({...t, ...(customCreds[t.id] || {})}));
-                Object.entries(customCreds).forEach(([id,c]) => { if(!mergedCreds.some(t=>t.id===id)) mergedCreds.push({id, ...c}); });
-                const tech = mergedCreds.find(t => t.loginId.toLowerCase() === username.toLowerCase() && t.password === password);
-                if (!tech) {
-                    showToast('Incorrect technician Login ID or Password.', 'error');
-                    return;
-                }
-                currentRole = 'tech';
-                currentTechnicianId = tech.id;
-                const loggedTechProfile = await getRecord('technicians', tech.id);
-                document.getElementById('currentUserName').innerText = loggedTechProfile?.name || tech.name || tech.id;
-                document.getElementById('currentUserRole').innerText = `Field Technician · ${tech.id}`;
-                document.querySelectorAll('.staff-only').forEach(el => el.style.display = 'none');
-                document.querySelectorAll('.tech-only').forEach(el => el.style.display = 'flex');
-                document.getElementById('loginOverlay').style.display = 'none';
-                switchView('technician-portal', document.querySelector('.nav-item.tech-only'));
-                showToast('Signed in as Field Technician', 'success');
+            const email = loginMode === 'staff' ? usernameRaw : usernameRaw.toLowerCase().replace(/\s+/g, '') + '@btlcms.local';
+
+            submitBtn.disabled = true;
+            submitBtn.innerText = 'Signing in…';
+            const { data, error } = await sb.auth.signInWithPassword({ email, password });
+            submitBtn.disabled = false;
+            submitBtn.innerText = 'Sign in';
+
+            if (error) {
+                showToast(error.message === 'Invalid login credentials' ? 'Incorrect login ID / email or password.' : error.message, 'error');
+                return;
             }
+
+            if (loginMode === 'staff') {
+                await enterStaffPortal(data.user);
+            } else {
+                await enterTechPortal(data.user);
+            }
+            showToast(`Signed in as ${data.user.user_metadata?.name || data.user.email}`, 'success');
         }
 
         async function logout() {
-            if (currentRole === 'staff') await sb.auth.signOut();
+            await sb.auth.signOut();
             currentRole = 'staff';
             currentTechnicianId = null;
             document.getElementById('loginOverlay').style.display = 'flex';
@@ -1304,18 +1306,13 @@
 
         async function restoreSession() {
             const { data } = await sb.auth.getSession();
-            if (data.session) {
-                currentRole = 'staff';
-                const displayName = data.session.user.user_metadata?.name || data.session.user.email;
-                document.getElementById('currentUserName').innerText = displayName;
-                document.getElementById('currentUserRole').innerText = 'Manager';
-                document.querySelectorAll('.staff-only').forEach(el => el.style.display = 'flex');
-                document.querySelectorAll('.tech-only').forEach(el => el.style.display = 'none');
-                document.getElementById('loginOverlay').style.display = 'none';
-                switchView('dashboard', document.querySelector('.nav-item.staff-only'));
-                return true;
+            if (!data.session) return false;
+            if (data.session.user.user_metadata?.role === 'technician') {
+                await enterTechPortal(data.session.user);
+            } else {
+                await enterStaffPortal(data.session.user);
             }
-            return false;
+            return true;
         }
 
         /* ================= Router ================= */
@@ -1489,20 +1486,12 @@
             renderCustomers();
         }
 
-        /* ================= Asset Metadata / Warranty Helpers ================= */
-        function getAssetMetadataStore() {
-            try { return JSON.parse(localStorage.getItem('btl_asset_metadata') || '{}'); } catch { return {}; }
+        /* ================= Warranty Calculation Helpers ================= */
+        // Ticket "metadata" fields (payment, remarks, ratings, etc.) are real Postgres columns now —
+        // this does a partial upsert (Supabase only updates the columns you pass, others are untouched).
+        async function updateTicketMetadata(id, patch) {
+            await putRecord('tickets', { id, ...patch });
         }
-        function saveAssetMetadataStore(store) { localStorage.setItem('btl_asset_metadata', JSON.stringify(store)); }
-        function mergeAssetMetadata(asset) {
-            if (!asset) return asset;
-            const meta = getAssetMetadataStore()[asset.serial] || {};
-            return { ...asset, ...meta };
-        }
-        function getTicketMetadataStore() { try { return JSON.parse(localStorage.getItem('btl_ticket_metadata') || '{}'); } catch { return {}; } }
-        function saveTicketMetadataStore(store) { localStorage.setItem('btl_ticket_metadata', JSON.stringify(store)); }
-        function mergeTicketMetadata(ticket) { if (!ticket) return ticket; return { ...ticket, ...(getTicketMetadataStore()[ticket.id] || {}) }; }
-        function updateTicketMetadata(id, patch) { const store=getTicketMetadataStore(); store[id]={...(store[id]||{}),...patch}; saveTicketMetadataStore(store); }
         function addMonthsSafe(dateStr, months) {
             const d = new Date(dateStr + 'T00:00:00');
             if (isNaN(d.getTime())) return '';
@@ -1562,7 +1551,7 @@
             }
             const q = (document.getElementById('assetSearchInput')?.value || '').trim().toLowerCase();
             const tbody = document.getElementById('asset-table-body'); tbody.innerHTML = '';
-            let list = (await getAllRecords('assets')).map(mergeAssetMetadata);
+            let list = await getAllRecords('assets');
             if (q) list = list.filter(a => [a.serial,a.customer,a.site,a.category,a.brand,a.model,a.warrantyValidity].some(v => String(v||'').toLowerCase().includes(q)));
             if (!list.length) { tbody.innerHTML = `<tr><td colspan="10" class="empty-note">No assets found.</td></tr>`; return; }
             list.forEach(a => { tbody.innerHTML += `<tr><td class="mono">${esc(a.serial)}</td><td>${esc(a.customer)}</td><td>${esc(a.site)}</td><td>${esc(a.category)}</td><td>${esc(a.brand || '')}</td><td>${esc(a.model)}</td><td>${esc(a.entryDate || '')}</td><td>${esc(a.warrantyValidity || 'No Warranty')}</td><td>${esc(a.expiry || '')}</td><td class="row-actions"><button onclick="editAsset('${a.serial}')" class="btn-secondary btn-sm">Edit</button><button onclick="deleteAsset('${a.serial}')" class="btn-danger btn-sm">Delete</button></td></tr>`; });
@@ -1576,7 +1565,7 @@
         }
 
         async function editAsset(serial) {
-            const asset = mergeAssetMetadata(await getRecord('assets', serial)); if (!asset) return;
+            const asset = await getRecord('assets', serial); if (!asset) return;
             document.getElementById('editAssetSerial').value = asset.serial;
             document.getElementById('assetCustSelect').value = asset.customer; await populateSiteDropdownForAsset(); document.getElementById('assetSiteSelect').value = asset.site;
             document.getElementById('assetBatchContainer').innerHTML = assetRowHTML(asset);
@@ -1595,14 +1584,11 @@
             const editSerial = document.getElementById('editAssetSerial').value;
             const customer = document.getElementById('assetCustSelect').value, site = document.getElementById('assetSiteSelect').value;
             const cats=document.querySelectorAll('.asset-cat'), brands=document.querySelectorAll('.asset-brand'), models=document.querySelectorAll('.asset-model'), serials=document.querySelectorAll('.asset-serial'), entries=document.querySelectorAll('.asset-entry-date'), warranties=document.querySelectorAll('.asset-warranty'), expiries=document.querySelectorAll('.asset-expiry');
-            if (editSerial && editSerial !== serials[0].value) { await deleteRecord('assets', editSerial); const meta=getAssetMetadataStore(); delete meta[editSerial]; saveAssetMetadataStore(meta); }
-            const meta = getAssetMetadataStore();
+            if (editSerial && editSerial !== serials[0].value) { await deleteRecord('assets', editSerial); }
             for (let i=0;i<cats.length;i++) {
-                const data={serial:serials[i].value,customer,site,category:cats[i].value,model:models[i].value,expiry:expiries[i].value};
+                const data={serial:serials[i].value,customer,site,category:cats[i].value,brand:brands[i].value.trim(),model:models[i].value,entryDate:entries[i].value,warrantyValidity:warranties[i].value,expiry:expiries[i].value};
                 await putRecord('assets', data);
-                meta[data.serial]={brand:brands[i].value.trim(),entryDate:entries[i].value,warrantyValidity:warranties[i].value,expiry:expiries[i].value};
             }
-            saveAssetMetadataStore(meta);
             await logAuditEvent('Asset Register Updated', `Added/Updated Asset item for ${customer}`); showToast('Assets saved.'); resetAssetForm(); renderAssetsView();
         }
 
@@ -1654,7 +1640,7 @@
             assetSelect.innerHTML="<option value=''>-- Select Asset --</option>";
             (await getAllRecords('assets')).filter(a=>a.customer===custName&&a.site===siteName).forEach(a=>assetSelect.innerHTML+=`<option value="${esc(a.serial)}">${esc(a.model)} (${esc(a.serial)})</option>`);
         }
-        async function autoFillWarrantyInfo() { const serial=document.getElementById('compAssetSelect').value; const asset=await getRecord('assets',serial); if(asset){const a=mergeAssetMetadata(asset); document.getElementById('compWarrantyStatus').value=a.warrantyValidity==='No Warranty'?'No Warranty':(a.expiry&&new Date(a.expiry)>=new Date()?`Under Warranty (Expiry: ${a.expiry})`:`Expired (${a.expiry||'N/A'})`);} }
+        async function autoFillWarrantyInfo() { const serial=document.getElementById('compAssetSelect').value; const a=await getRecord('assets',serial); if(a){ document.getElementById('compWarrantyStatus').value=a.warrantyValidity==='No Warranty'?'No Warranty':(a.expiry&&new Date(a.expiry)>=new Date()?`Under Warranty (Expiry: ${a.expiry})`:`Expired (${a.expiry||'N/A'})`);} }
         function toggleComplaintPaymentFields() {
             const coverage=document.getElementById('compCoverageType')?.value || '';
             const enabled=coverage==='Out of Warranty' || coverage==='Chargeable Service';
@@ -1679,7 +1665,7 @@
             const chargeable=document.getElementById('compChargeable').value==='Yes' || document.getElementById('compCoverageType').value==='Chargeable Service' || document.getElementById('compCoverageType').value==='Out of Warranty';
             const ticketObj={id,logDate:new Date().toISOString().split('T')[0],customer,site,serial:selectedSerial,coverage:document.getElementById('compCoverageType').value,priority:document.getElementById('compPriority').value,description:document.getElementById('compDescription').value,status:'Unassigned',technicianId:'Unassigned',technicianName:'Unassigned',happinessCode:randomCode,visitDate:'',visitTime:'',diagnosis:'',action:'',spares:'',issueImg:'',fixImg:''};
             await addRecord('tickets',ticketObj);
-            updateTicketMetadata(id,{requestType:non?'Non-BTL':'BTL',contact:non?document.getElementById('compNewContact').value.trim():'',equipmentDetails:document.getElementById('compEquipmentDetails').value.trim(),chargeable,serviceCharge:document.getElementById('compServiceCharge').value,quotationAmount:document.getElementById('compQuotationAmount').value,invoiceNumber:document.getElementById('compInvoiceNumber').value.trim(),paymentStatus:chargeable?document.getElementById('compPaymentStatus').value:'Not Applicable',paymentReceivedDate:document.getElementById('compPaymentReceivedDate').value,paymentRemarks:document.getElementById('compPaymentRemarks').value.trim(),assignmentHistory:[]});
+            await updateTicketMetadata(id,{requestType:non?'Non-BTL':'BTL',contact:non?document.getElementById('compNewContact').value.trim():'',equipmentDetails:document.getElementById('compEquipmentDetails').value.trim(),chargeable,serviceCharge:document.getElementById('compServiceCharge').value,quotationAmount:document.getElementById('compQuotationAmount').value,invoiceNumber:document.getElementById('compInvoiceNumber').value.trim(),paymentStatus:chargeable?document.getElementById('compPaymentStatus').value:'Not Applicable',paymentReceivedDate:document.getElementById('compPaymentReceivedDate').value,paymentRemarks:document.getElementById('compPaymentRemarks').value.trim(),assignmentHistory:[]});
             await logAuditEvent('Complaint Logged',`Logged Ticket ${id} for ${customer}${non?' (Non-BTL / No Asset)':''}`); showToast(`Ticket ${id} logged. Happiness Code: ${randomCode}`); document.getElementById('complaintForm').reset(); toggleNonBTLComplaintMode(); toggleComplaintPaymentFields(); renderFilteredTickets();
         }
 
@@ -1789,7 +1775,7 @@
             e.preventDefault(); const ticketId=document.getElementById('ticketAssignSelect').value, techId=document.getElementById('techAssignSelect').value; const ticket=await getRecord('tickets',ticketId), tech=await getRecord('technicians',techId); if(!ticket||!tech)return;
             const oldId=ticket.technicianId||'Unassigned'; const isReassigned=oldId!=='Unassigned'&&oldId!==tech.id; const reason=document.getElementById('reassignmentReason').value.trim(); if(isReassigned&&!reason){showToast('Please enter a reassignment reason.','error');return;}
             ticket.technicianId=tech.id; ticket.technicianName=tech.name; ticket.visitDate=document.getElementById('visitDate').value; ticket.visitTime=document.getElementById('visitTime').value; ticket.status='Assigned';
-            const hist=ticket.assignmentHistory||[]; hist.push({date:new Date().toLocaleString(),technicianId:tech.id,technicianName:tech.name,previousTechnicianId:oldId,action:isReassigned?'Reassigned':'Assigned',reason:reason||'Initial technician assignment'}); updateTicketMetadata(ticket.id,{assignmentHistory:hist});
+            const hist=ticket.assignmentHistory||[]; hist.push({date:new Date().toLocaleString(),technicianId:tech.id,technicianName:tech.name,previousTechnicianId:oldId,action:isReassigned?'Reassigned':'Assigned',reason:reason||'Initial technician assignment'}); await updateTicketMetadata(ticket.id,{assignmentHistory:hist});
             await putRecord('tickets',ticket); await logAuditEvent(isReassigned?'Technician Reassigned':'Task Assigned',`${isReassigned?'Reassigned':'Assigned'} Ticket ${ticket.id} to Tech ${tech.name} (${tech.id})${reason?` — Reason: ${reason}`:''}`); showToast(`Task ${isReassigned?'reassigned':'assigned'} to ${tech.name}.`); document.getElementById('assignForm').reset(); renderAssignTechView();
         }
 
@@ -1808,18 +1794,13 @@
             tbody.innerHTML = "";
             populatePasswordTechSelect();
             let list = await getAllRecords('technicians');
-            if (q) list = list.filter(t => { const c = TECHNICIAN_CREDENTIALS.find(x => x.id === t.id); return [t.id, t.name, t.mobile, c?.loginId, t.specialization].some(v => String(v || '').toLowerCase().includes(q)); });
+            if (q) list = list.filter(t => [t.id, t.name, t.mobile, t.specialization].some(v => String(v || '').toLowerCase().includes(q)));
             if (list.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="7" class="empty-note">No technicians found.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="5" class="empty-note">No technicians found.</td></tr>`;
                 return;
             }
             list.forEach(t => {
-                const cred = TECHNICIAN_CREDENTIALS.find(c => c.id === t.id);
-                const customCreds = JSON.parse(localStorage.getItem('btl_tech_credentials') || '{}');
-                const localCred = customCreds[t.id] || {};
-                const loginId = t.loginId || cred?.loginId || localCred.loginId || t.id;
-                const password = t.password || cred?.password || localCred.password || '';
-                tbody.innerHTML += `<tr><td class="mono">${esc(t.id)}</td><td>${esc(t.name)}</td><td>${esc(t.mobile || "")}</td><td class="mono">${esc(loginId)}</td><td class="mono">${esc(password)}</td><td>${esc(t.specialization)}</td>
+                tbody.innerHTML += `<tr><td class="mono">${esc(t.id)}</td><td>${esc(t.name)}</td><td>${esc(t.mobile || "")}</td><td>${esc(t.specialization)}</td>
                     <td class="row-actions">
                         <button onclick="editTech('${t.id}')" class="btn-secondary btn-sm">Edit</button>
                         <button onclick="deleteTech('${t.id}')" class="btn-danger btn-sm">Delete</button>
@@ -1833,7 +1814,6 @@
             const id = document.getElementById('techIdInput').value.trim();
             const name = document.getElementById('techName').value.trim();
             const mobile = document.getElementById('techMobile').value.trim();
-            const loginId = document.getElementById('techLoginId').value.trim();
             const password = document.getElementById('techPassword').value;
             const specialization = document.getElementById('techSpecialization').value;
 
@@ -1843,11 +1823,8 @@
             if (!isEditMode) {
                 const duplicateId = others.find(t => t.id.toLowerCase() === id.toLowerCase());
                 if (duplicateId) { showToast(`Technician ID "${id}" is already registered.`, 'error'); return; }
+                if (!password) { showToast('Set an initial login password for this technician.', 'error'); return; }
             }
-
-            const duplicateLogin = others.find(t => String(t.loginId || t.id).toLowerCase() === loginId.toLowerCase()) ||
-                TECHNICIAN_CREDENTIALS.find(t => t.id !== id && t.loginId.toLowerCase() === loginId.toLowerCase());
-            if (duplicateLogin) { showToast(`Login ID "${loginId}" is already registered.`, 'error'); return; }
 
             const duplicateName = others.find(t => t.name.toLowerCase() === name.toLowerCase());
             if (duplicateName) { showToast(`Technician name "${name}" is already registered.`, 'error'); return; }
@@ -1856,11 +1833,17 @@
             if (duplicateMobile) { showToast(`Mobile number "${mobile}" is already registered.`, 'error'); return; }
 
             await putRecord('technicians', { id, name, mobile, specialization });
-            const customCreds = JSON.parse(localStorage.getItem('btl_tech_credentials') || '{}');
-            customCreds[id] = { loginId, password };
-            localStorage.setItem('btl_tech_credentials', JSON.stringify(customCreds));
+
+            if (!isEditMode) {
+                const { data: created, error } = await sb.rpc('admin_create_technician_login', { employee_code: id, tech_name: name, new_password: password });
+                if (error) { showToast(`Technician saved, but login creation failed: ${error.message}`, 'error'); }
+                else if (created === false) { showToast('Technician saved, but a login for this ID already exists.', 'error'); }
+                else { showToast('Technician saved and login created.'); }
+            } else {
+                showToast('Technician saved.');
+            }
+
             await logAuditEvent("Technician Saved", `Saved Technician ${id} - ${name}`);
-            showToast('Technician saved.');
             resetTechForm();
             renderTechMgmtView();
         }
@@ -1873,11 +1856,8 @@
             document.getElementById('techIdInput').readOnly = true;
             document.getElementById('techName').value = t.name;
             document.getElementById('techMobile').value = t.mobile || '';
-            const editCreds = JSON.parse(localStorage.getItem('btl_tech_credentials') || '{}');
-            const baseCred = TECHNICIAN_CREDENTIALS.find(c => c.id === t.id) || {};
-            const cred = {...baseCred, ...(editCreds[t.id] || {})};
-            document.getElementById('techLoginId').value = cred.loginId || t.id;
-            document.getElementById('techPassword').value = cred.password || '';
+            document.getElementById('techPassword').value = '';
+            document.getElementById('techPasswordGroup').style.display = 'none';
             document.getElementById('techSpecialization').value = t.specialization;
             document.getElementById('techFormTitle').innerText = "Edit Technician Profile";
             document.getElementById('techMgmtForm').scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -1893,12 +1873,11 @@
             const id=document.getElementById('passwordTechSelect').value;
             const pw=document.getElementById('newTechPassword').value;
             const cpw=document.getElementById('confirmTechPassword').value;
-            if(!id) return;
+            if(!id) { showToast('Select a technician.', 'error'); return; }
             if(pw !== cpw) { showToast('Passwords do not match.','error'); return; }
-            const creds=JSON.parse(localStorage.getItem('btl_tech_credentials') || '{}');
-            const base=TECHNICIAN_CREDENTIALS.find(c=>c.id===id);
-            creds[id]={loginId:creds[id]?.loginId || base?.loginId || id,password:pw};
-            localStorage.setItem('btl_tech_credentials',JSON.stringify(creds));
+            const { data: ok, error } = await sb.rpc('admin_set_technician_password', { employee_code: id, new_password: pw });
+            if (error) { showToast(`Password update failed: ${error.message}`, 'error'); return; }
+            if (ok === false) { showToast('No login account exists yet for this technician ID.', 'error'); return; }
             await logAuditEvent('Technician Password Modified', `Updated portal password for Technician ${id}`);
             showToast('Technician password updated successfully.','success');
             document.getElementById('techPasswordForm').reset(); renderTechMgmtView();
@@ -1910,7 +1889,7 @@
                 showToast(`Cannot delete ${id} — they have active tickets assigned. Reassign first.`, 'error');
                 return;
             }
-            const ok = await askConfirm(`Delete technician ${id}?`, 'Delete technician');
+            const ok = await askConfirm(`Delete technician ${id}? Their login account is not removed automatically — do that from the Supabase dashboard if needed.`, 'Delete technician');
             if (!ok) return;
             await deleteRecord('technicians', id);
             await logAuditEvent("Technician Deleted", `Deleted Technician ID ${id}`);
@@ -1922,6 +1901,7 @@
             document.getElementById('techMgmtForm').reset();
             document.getElementById('editTechMode').value = "false";
             document.getElementById('techIdInput').readOnly = false;
+            document.getElementById('techPasswordGroup').style.display = '';
             document.getElementById('techFormTitle').innerText = "Add Technician Manually";
         }
 
@@ -2007,7 +1987,7 @@
 
         async function populatePaymentTicketSelect(){ const el=document.getElementById('paymentTicketSelect'); if(!el)return; const current=el.value; el.innerHTML='<option value="">-- Select Chargeable Ticket --</option>'; const list=(await getAllRecords('tickets')).filter(t=>t.chargeable||t.coverage==='Chargeable Service'||t.coverage==='Out of Warranty'); list.forEach(t=>el.innerHTML+=`<option value="${esc(t.id)}">${esc(t.id)} - ${esc(t.customer)} - ${esc(t.paymentStatus||'Pending')}</option>`); if(list.some(t=>t.id===current))el.value=current; }
         async function loadPaymentTicket(){ const id=document.getElementById('paymentTicketSelect')?.value; if(!id)return; const t=await getRecord('tickets',id); if(!t)return; document.getElementById('adminServiceCharge').value=t.serviceCharge||''; document.getElementById('adminQuotationAmount').value=t.quotationAmount||''; document.getElementById('adminInvoiceNumber').value=t.invoiceNumber||''; document.getElementById('adminPaymentStatus').value=t.paymentStatus||'Pending'; document.getElementById('adminPaymentReceivedDate').value=t.paymentReceivedDate||''; document.getElementById('adminPaymentRemarks').value=t.paymentRemarks||''; }
-        async function savePaymentDetails(){ const id=document.getElementById('paymentTicketSelect').value; if(!id){showToast('Select a chargeable ticket first.','error');return;} updateTicketMetadata(id,{chargeable:true,serviceCharge:document.getElementById('adminServiceCharge').value,quotationAmount:document.getElementById('adminQuotationAmount').value,invoiceNumber:document.getElementById('adminInvoiceNumber').value.trim(),paymentStatus:document.getElementById('adminPaymentStatus').value,paymentReceivedDate:document.getElementById('adminPaymentReceivedDate').value,paymentRemarks:document.getElementById('adminPaymentRemarks').value.trim()}); await logAuditEvent('Payment Details Updated',`Updated payment details for Ticket ${id} — Status: ${document.getElementById('adminPaymentStatus').value}`); showToast('Payment details saved.'); renderPaymentReport(); populatePaymentTicketSelect(); }
+        async function savePaymentDetails(){ const id=document.getElementById('paymentTicketSelect').value; if(!id){showToast('Select a chargeable ticket first.','error');return;} await updateTicketMetadata(id,{chargeable:true,serviceCharge:document.getElementById('adminServiceCharge').value,quotationAmount:document.getElementById('adminQuotationAmount').value,invoiceNumber:document.getElementById('adminInvoiceNumber').value.trim(),paymentStatus:document.getElementById('adminPaymentStatus').value,paymentReceivedDate:document.getElementById('adminPaymentReceivedDate').value,paymentRemarks:document.getElementById('adminPaymentRemarks').value.trim()}); await logAuditEvent('Payment Details Updated',`Updated payment details for Ticket ${id} — Status: ${document.getElementById('adminPaymentStatus').value}`); showToast('Payment details saved.'); renderPaymentReport(); populatePaymentTicketSelect(); }
 
         /* ================= Audit Logs View ================= */
         async function renderAuditLogsView() {
@@ -2112,7 +2092,7 @@
             ticket.diagnosis=document.getElementById('techDiagnosis').value; ticket.action=document.getElementById('techAction').value; ticket.spares=document.getElementById('chkSparesRequired').checked?document.getElementById('techSpares').value:''; ticket.status=statusSelection; ticket.issueImg=document.getElementById('issueImgBase64').value||ticket.issueImg; ticket.fixImg=document.getElementById('fixImgBase64').value||ticket.fixImg; ticket.updatedAt=new Date().toISOString();
             const collectionStatus=document.getElementById('techPaymentCollectionStatus')?.value||'Not Collected'; const amountCollected=parseFloat(document.getElementById('techPaymentAmountCollected')?.value||'0')||0; const dueAmount=parseFloat(ticket.serviceCharge||ticket.quotationAmount||'0')||0;
             if(chargeable&&collectionStatus==='Collected'){ if(amountCollected<=0){showToast('Enter the amount collected.','error');return;} if(!document.getElementById('techPaymentMode').value){showToast('Select the payment mode.','error');return;} if(!document.getElementById('techPaymentDate').value){showToast('Enter the payment date.','error');return;} ticket.paymentStatus=(dueAmount>0&&amountCollected<dueAmount)?'Partially Paid':'Paid'; }
-            updateTicketMetadata(ticket.id,{customerRemarks:document.getElementById('techCustomerRemarks').value.trim(),technicianRemarks:document.getElementById('techTechnicianRemarks').value.trim(),customerFeedback:document.getElementById('techCustomerFeedback').value.trim(),satisfactionRating:document.getElementById('techSatisfactionRating').value,supportingFiles:JSON.parse(document.getElementById('techSupportingFiles').value||'[]'),paymentCollectionStatus:collectionStatus,paymentAmountCollected:amountCollected,paymentMode:document.getElementById('techPaymentMode')?.value||'',paymentReference:document.getElementById('techPaymentReference')?.value.trim()||'',paymentReceivedDate:document.getElementById('techPaymentDate')?.value||'',paymentCollectorRemarks:document.getElementById('techPaymentCollectorRemarks')?.value.trim()||''});
+            await updateTicketMetadata(ticket.id,{customerRemarks:document.getElementById('techCustomerRemarks').value.trim(),technicianRemarks:document.getElementById('techTechnicianRemarks').value.trim(),customerFeedback:document.getElementById('techCustomerFeedback').value.trim(),satisfactionRating:document.getElementById('techSatisfactionRating').value,supportingFiles:JSON.parse(document.getElementById('techSupportingFiles').value||'[]'),paymentCollectionStatus:collectionStatus,paymentAmountCollected:amountCollected,paymentMode:document.getElementById('techPaymentMode')?.value||'',paymentReference:document.getElementById('techPaymentReference')?.value.trim()||'',paymentReceivedDate:document.getElementById('techPaymentDate')?.value||'',paymentCollectorRemarks:document.getElementById('techPaymentCollectorRemarks')?.value.trim()||''});
             await putRecord('tickets',ticket); await logAuditEvent('Field Service Update',`Technician ${currentTechnicianId} updated ${ticket.id}. Status set to ${ticket.status}`); showToast(statusSelection==='Closed'?`Call closed — Happiness Code verified for ${ticket.id}.`:`Service call updated. Status: ${ticket.status}`); document.getElementById('techAppForm').reset(); toggleSparesHighlight(); toggleTechPaymentCollectionFields(); renderTechDashboard(); renderTechOpenComplaints();
         }
 
