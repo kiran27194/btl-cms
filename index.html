@@ -332,6 +332,24 @@
         </div>
     </div>
 
+    <!-- RESIGNATION MODAL -->
+    <div id="resignModal" class="modal-overlay">
+        <div class="modal-body modal-sm">
+            <div class="modal-head">
+                <h2>Mark Technician as Resigned</h2>
+            </div>
+            <p style="margin-bottom: 1rem; color: var(--ink-soft); font-size: 0.9rem; line-height: 1.5;">This disables their portal login as of the date below. They'll stay in the directory for historical records.</p>
+            <div class="form-group" style="margin-bottom: 1.3rem;">
+                <label for="resignDateInput">Resignation Date</label>
+                <input type="date" id="resignDateInput" required>
+            </div>
+            <div class="form-actions">
+                <button type="button" id="resignModalConfirm" class="btn-danger">Confirm Resignation</button>
+                <button type="button" class="btn-secondary" onclick="closeResignModal()">Cancel</button>
+            </div>
+        </div>
+    </div>
+
     <!-- TOASTS -->
     <div id="toastContainer" class="toast-container" aria-live="polite"></div>
 
@@ -716,7 +734,7 @@
                     </div>
                     <div class="table-scroll">
                         <table>
-                            <thead><tr><th>Tech ID</th><th>Name</th><th>Mobile</th><th>Specialization</th><th>Actions</th></tr></thead>
+                            <thead><tr><th>Tech ID</th><th>Name</th><th>Mobile</th><th>Specialization</th><th>Status</th><th>Actions</th></tr></thead>
                             <tbody id="tech-master-table-body"></tbody>
                         </table>
                     </div>
@@ -963,13 +981,13 @@
         /* Store → Postgres table + primary key mapping */
         const STORE_TABLE = { customers: 'customers', technicians: 'technicians', assets: 'assets', tickets: 'tickets', auditLogs: 'audit_logs' };
         const PK = { customers: 'id', technicians: 'id', assets: 'serial', tickets: 'id', auditLogs: 'id' };
-        const DATE_FIELDS = new Set(['log_date', 'expiry', 'visit_date', 'entry_date', 'payment_received_date', 'closed_date']);
+        const DATE_FIELDS = new Set(['log_date', 'expiry', 'visit_date', 'entry_date', 'payment_received_date', 'closed_date', 'resigned_date']);
         const NUMERIC_FIELDS = new Set(['service_charge', 'quotation_amount', 'payment_amount_collected']);
 
         /* camelCase JS field ↔ snake_case Postgres column, per store */
         const FIELD_MAP = {
             customers: { id: 'id', name: 'name', contact: 'contact', mobile: 'mobile', email: 'email', sites: 'sites' },
-            technicians: { id: 'id', name: 'name', mobile: 'mobile', specialization: 'specialization' },
+            technicians: { id: 'id', name: 'name', mobile: 'mobile', specialization: 'specialization', status: 'status', resignedDate: 'resigned_date' },
             assets: { serial: 'serial', customer: 'customer', site: 'site', category: 'category', brand: 'brand', model: 'model', entryDate: 'entry_date', warrantyValidity: 'warranty_validity', expiry: 'expiry' },
             tickets: {
                 id: 'id', logDate: 'log_date', customer: 'customer', site: 'site', serial: 'serial', coverage: 'coverage',
@@ -1008,7 +1026,7 @@
             for (const [jsKey, dbKey] of Object.entries(FIELD_MAP[store])) {
                 let val = row[dbKey];
                 if (val === null || val === undefined) {
-                    val = ARRAY_FIELDS.has(jsKey) ? [] : (jsKey === 'chargeable' ? false : '');
+                    val = ARRAY_FIELDS.has(jsKey) ? [] : (jsKey === 'chargeable' ? false : (jsKey === 'status' && store === 'technicians' ? 'Active' : ''));
                 }
                 obj[jsKey] = val;
             }
@@ -1742,7 +1760,7 @@
 
             const techSelect = document.getElementById('techAssignSelect');
             techSelect.innerHTML = '<option value="">-- Select Technician --</option>';
-            (await getAllRecords('technicians')).forEach(t => techSelect.innerHTML += `<option value="${t.id}">${esc(t.name)} (${esc(t.id)})</option>`);
+            (await getAllRecords('technicians')).filter(t => t.status !== 'Resigned').forEach(t => techSelect.innerHTML += `<option value="${t.id}">${esc(t.name)} (${esc(t.id)})</option>`);
 
             const unassignedBody = document.getElementById('unassigned-tasks-table-body');
             const assignedBody = document.getElementById('assigned-tasks-table-body');
@@ -1796,14 +1814,21 @@
             let list = await getAllRecords('technicians');
             if (q) list = list.filter(t => [t.id, t.name, t.mobile, t.specialization].some(v => String(v || '').toLowerCase().includes(q)));
             if (list.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="5" class="empty-note">No technicians found.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="6" class="empty-note">No technicians found.</td></tr>`;
                 return;
             }
             list.forEach(t => {
-                tbody.innerHTML += `<tr><td class="mono">${esc(t.id)}</td><td>${esc(t.name)}</td><td>${esc(t.mobile || "")}</td><td>${esc(t.specialization)}</td>
+                const resigned = t.status === 'Resigned';
+                const statusCell = resigned
+                    ? `<span class="badge badge-closed">Resigned${t.resignedDate ? ' · ' + esc(t.resignedDate) : ''}</span>`
+                    : `<span class="badge badge-resolved">Active</span>`;
+                const statusAction = resigned
+                    ? `<button onclick="reactivateTech('${t.id}')" class="btn-secondary btn-sm">Reactivate</button>`
+                    : `<button onclick="openResignModal('${t.id}')" class="btn-danger btn-sm">Mark Resigned</button>`;
+                tbody.innerHTML += `<tr><td class="mono">${esc(t.id)}</td><td>${esc(t.name)}</td><td>${esc(t.mobile || "")}</td><td>${esc(t.specialization)}</td><td>${statusCell}</td>
                     <td class="row-actions">
                         <button onclick="editTech('${t.id}')" class="btn-secondary btn-sm">Edit</button>
-                        <button onclick="deleteTech('${t.id}')" class="btn-danger btn-sm">Delete</button>
+                        ${statusAction}
                     </td></tr>`;
             });
         }
@@ -1883,17 +1908,46 @@
             document.getElementById('techPasswordForm').reset(); renderTechMgmtView();
         }
 
-        async function deleteTech(id) {
+        let resignTechId = null;
+
+        async function openResignModal(id) {
             const tickets = await getAllRecords('tickets');
             if (tickets.some(t => t.technicianId === id && t.status !== 'Closed')) {
-                showToast(`Cannot delete ${id} — they have active tickets assigned. Reassign first.`, 'error');
+                showToast(`Cannot mark ${id} as resigned — they have active tickets assigned. Reassign first.`, 'error');
                 return;
             }
-            const ok = await askConfirm(`Delete technician ${id}? Their login account is not removed automatically — do that from the Supabase dashboard if needed.`, 'Delete technician');
+            resignTechId = id;
+            document.getElementById('resignDateInput').value = new Date().toISOString().split('T')[0];
+            document.getElementById('resignModal').style.display = 'flex';
+        }
+
+        function closeResignModal() {
+            document.getElementById('resignModal').style.display = 'none';
+            resignTechId = null;
+        }
+
+        document.getElementById('resignModalConfirm').addEventListener('click', async () => {
+            const id = resignTechId;
+            const date = document.getElementById('resignDateInput').value;
+            if (!id) return;
+            if (!date) { showToast('Select a resignation date.', 'error'); return; }
+            closeResignModal();
+            const { data: ok, error } = await sb.rpc('admin_set_technician_status', { employee_code: id, new_status: 'Resigned', resign_date: date });
+            if (error) { showToast(`Failed to mark as resigned: ${error.message}`, 'error'); return; }
+            if (ok === false) { showToast('Technician not found.', 'error'); return; }
+            await logAuditEvent('Technician Resigned', `Marked Technician ${id} as resigned effective ${date}; login disabled.`);
+            showToast('Technician marked as resigned — their login is now disabled.');
+            renderTechMgmtView();
+        });
+
+        async function reactivateTech(id) {
+            const ok = await askConfirm(`Reactivate technician ${id}? This restores their portal login.`, 'Reactivate technician');
             if (!ok) return;
-            await deleteRecord('technicians', id);
-            await logAuditEvent("Technician Deleted", `Deleted Technician ID ${id}`);
-            showToast('Technician deleted.');
+            const { data: result, error } = await sb.rpc('admin_set_technician_status', { employee_code: id, new_status: 'Active', resign_date: null });
+            if (error) { showToast(`Failed to reactivate: ${error.message}`, 'error'); return; }
+            if (result === false) { showToast('Technician not found.', 'error'); return; }
+            await logAuditEvent('Technician Reactivated', `Reactivated Technician ${id}; login restored.`);
+            showToast('Technician reactivated.');
             renderTechMgmtView();
         }
 
