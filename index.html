@@ -1053,7 +1053,7 @@
         /* Store → Postgres table + primary key mapping */
         const STORE_TABLE = { customers: 'customers', technicians: 'technicians', assets: 'assets', tickets: 'tickets', auditLogs: 'audit_logs' };
         const PK = { customers: 'id', technicians: 'id', assets: 'serial', tickets: 'id', auditLogs: 'id' };
-        const DATE_FIELDS = new Set(['log_date', 'expiry', 'visit_date', 'entry_date', 'payment_received_date', 'closed_date', 'resigned_date']);
+        const DATE_FIELDS = new Set(['log_date', 'expiry', 'visit_date', 'entry_date', 'payment_received_date', 'closed_date', 'resigned_date', 'updated_at']);
         const NUMERIC_FIELDS = new Set(['service_charge', 'quotation_amount', 'payment_amount_collected']);
 
         /* camelCase JS field ↔ snake_case Postgres column, per store */
