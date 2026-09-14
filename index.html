@@ -370,6 +370,7 @@
                 <li class="nav-item staff-only" onclick="switchView('customer-mgmt', this)"><span class="ico">👥</span>Customers &amp; Sites</li>
                 <li class="nav-item staff-only" onclick="switchView('asset-mgmt', this)"><span class="ico">📦</span>Asset Register</li>
                 <li class="nav-item staff-only" onclick="switchView('log-complaints', this)"><span class="ico">🚨</span>Log Complaints</li>
+                <li class="nav-item staff-only" onclick="switchView('installations', this)"><span class="ico">🏗️</span>Installations</li>
                 <li class="nav-item staff-only" onclick="switchView('assign-tech', this)"><span class="ico">🔧</span>Assign / Reassign Tech</li>
                 <li class="nav-item staff-only" onclick="switchView('daily-schedule', this)"><span class="ico">🗓️</span>Daily Schedule</li>
                 <li class="nav-item staff-only" onclick="switchView('tech-mgmt', this)"><span class="ico">👷</span>Technician Directory</li>
@@ -534,13 +535,6 @@
                         <form id="complaintForm" onsubmit="handleComplaintSubmit(event)">
                             <div class="form-grid">
                                 <div class="form-group">
-                                    <label for="compJobType">Job Type</label>
-                                    <select id="compJobType" onchange="updateComplaintFormMode()">
-                                        <option value="Complaint">Complaint / Service Call</option>
-                                        <option value="Installation">New Installation</option>
-                                    </select>
-                                </div>
-                                <div class="form-group">
                                     <label for="compRequestType">Service Request Type</label>
                                     <select id="compRequestType" onchange="updateComplaintFormMode()">
                                         <option value="BTL">Existing BTL Customer / Asset</option>
@@ -630,6 +624,112 @@
                         <table>
                             <thead><tr><th>Ticket ID</th><th>Log Date</th><th>Customer &amp; Site</th><th>Serial</th><th>Priority</th><th>Assigned Tech</th><th>Status</th><th>Actions</th></tr></thead>
                             <tbody id="complaint-table-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- INSTALLATIONS -->
+                <div id="installations" class="view-panel">
+                    <header class="view-head"><div><h1>Installations</h1><p class="lede">New equipment installations — separate from complaint/service tickets.</p></div></header>
+                    <div class="card">
+                        <h3>Log New Installation</h3><br>
+                        <form id="installationForm" onsubmit="handleInstallationSubmit(event)">
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label for="instRequestType">Customer Type</label>
+                                    <select id="instRequestType" onchange="updateInstallationFormMode()">
+                                        <option value="BTL">Existing BTL Customer</option>
+                                        <option value="NON_BTL">New / Non-BTL Customer</option>
+                                    </select>
+                                </div>
+                                <div class="form-group" id="instExistingCustomerGroup">
+                                    <label for="instCustSelect">Customer</label>
+                                    <select id="instCustSelect" required onchange="populateSiteDropdownForInstallation()"><option value="">-- Select --</option></select>
+                                </div>
+                                <div class="form-group" id="instNewCustomerGroup" style="display:none;">
+                                    <label for="instNewCustomer">Customer Name</label>
+                                    <input type="text" id="instNewCustomer" placeholder="Customer / Site Contact Name">
+                                </div>
+                                <div class="form-group" id="instNewContactGroup" style="display:none;">
+                                    <label for="instNewContact">Contact Number</label>
+                                    <input type="tel" id="instNewContact" placeholder="Contact Number">
+                                </div>
+                                <div class="form-group">
+                                    <label for="instSiteSelect">Site / Location</label>
+                                    <select id="instSiteSelect" required><option value="">-- Select --</option></select>
+                                </div>
+                                <div class="form-group" id="instNewSiteGroup" style="display:none;">
+                                    <label for="instNewSite">Installation Site / Address</label>
+                                    <input type="text" id="instNewSite" placeholder="Full site address">
+                                </div>
+                            </div>
+                            <div class="form-grid">
+                                <div class="form-group"><label for="instEquipmentDetails">Equipment to Install</label><input type="text" id="instEquipmentDetails" placeholder="Models, quantity, scope of work" required></div>
+                                <div class="form-group"><label for="instPriority">Priority</label><select id="instPriority"><option>Critical</option><option>High</option><option selected>Medium</option><option>Low</option></select></div>
+                            </div>
+                            <div class="form-grid">
+                                <div class="form-group"><label for="instChargeable">Chargeable</label><select id="instChargeable" onchange="toggleInstallationPaymentFields()"><option value="No">No</option><option value="Yes">Yes</option></select></div>
+                            </div>
+                            <div id="installationPaymentCard" class="card" style="display:none;margin:0 0 1rem 0;background:var(--surface-2);">
+                                <h4>Payment / Quotation</h4><br>
+                                <div class="form-grid">
+                                    <div class="form-group"><label for="instServiceCharge">Service Charge</label><input type="number" id="instServiceCharge" min="0" step="0.01" placeholder="0.00"></div>
+                                    <div class="form-group"><label for="instQuotationAmount">Quotation / Estimate Amount</label><input type="number" id="instQuotationAmount" min="0" step="0.01" placeholder="0.00"></div>
+                                    <div class="form-group"><label for="instInvoiceNumber">Invoice Number</label><input type="text" id="instInvoiceNumber" placeholder="Invoice number"></div>
+                                    <div class="form-group"><label for="instPaymentStatus">Payment Status</label><select id="instPaymentStatus"><option>Pending</option><option>Partially Paid</option><option>Paid</option><option>Not Applicable</option></select></div>
+                                </div>
+                            </div>
+                            <div class="form-group" style="margin-bottom:1.5rem;">
+                                <label for="instDescription">Installation Notes</label>
+                                <textarea id="instDescription" rows="2" placeholder="Any additional notes for the field team"></textarea>
+                            </div>
+                            <button type="submit">Log Installation</button>
+                        </form>
+                    </div>
+
+                    <div class="card">
+                        <h3>Assign Technicians to Installation</h3><p class="lede">Select one or more technicians for a site.</p><br>
+                        <form id="installAssignForm" onsubmit="handleInstallAssignmentSubmit(event)">
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label for="instAssignSelect">Installation Job</label>
+                                    <select id="instAssignSelect" required onchange="loadInstallAssigneeInfo()"><option value="">-- Select Installation --</option></select>
+                                </div>
+                                <div class="form-group"><label for="instCurrentTechDisplay">Current Assignee(s)</label><input type="text" id="instCurrentTechDisplay" readonly placeholder="None"></div>
+                            </div>
+                            <div class="form-group" style="margin-bottom:1rem;">
+                                <label>Assign To (select one or more technicians)</label>
+                                <div id="instTechAssignCheckboxList" style="max-height:220px;overflow-y:auto;border:1px solid var(--border-strong);border-radius:var(--radius-sm);padding:0.6rem 0.8rem;display:flex;flex-direction:column;gap:0.4rem;"></div>
+                            </div>
+                            <div class="form-grid">
+                                <div class="form-group"><label for="instVisitDate">Scheduled Date</label><input type="date" id="instVisitDate" required></div>
+                                <div class="form-group"><label for="instVisitTime">Scheduled Time</label><input type="time" id="instVisitTime" required></div>
+                                <div class="form-group"><label for="instReassignmentReason">Reassignment Reason (if changing team)</label><input type="text" id="instReassignmentReason" placeholder="Only needed when changing the assigned team"></div>
+                            </div>
+                            <button type="submit">Assign / Reassign Team</button>
+                        </form>
+                    </div>
+
+                    <h2 class="section-title">Installation Jobs</h2>
+                    <div class="search-row">
+                        <input type="search" id="installSearchInput" placeholder="Search installation, customer, technician…" oninput="renderInstallations()">
+                        <select id="installStatusFilter" onchange="renderInstallations()">
+                            <option value="all">All statuses</option>
+                            <option value="Unassigned">Unassigned</option>
+                            <option value="Assigned">Assigned</option>
+                            <option value="Work in Progress">Work in Progress</option>
+                            <option value="Configuration Pending">Configuration Pending</option>
+                            <option value="Pending due to material shortage">Pending due to material shortage</option>
+                            <option value="Signature pending due to client unavailability">Signature pending due to client unavailability</option>
+                            <option value="Site Completed and Handed Over">Site Completed and Handed Over</option>
+                            <option value="Closed">Closed</option>
+                        </select>
+                        <button type="button" class="btn-secondary" onclick="document.getElementById('installSearchInput').value='';document.getElementById('installStatusFilter').value='all';renderInstallations();">Clear</button>
+                    </div>
+                    <div class="table-scroll">
+                        <table>
+                            <thead><tr><th>Ticket ID</th><th>Customer &amp; Site</th><th>Technician(s)</th><th>Scheduled Visit</th><th>Status</th><th>Actions</th></tr></thead>
+                            <tbody id="installation-table-body"></tbody>
                         </table>
                     </div>
                 </div>
@@ -981,7 +1081,7 @@
                                         <div class="form-group"><label for="techPaymentCollectorRemarks">Collection Remarks</label><input type="text" id="techPaymentCollectorRemarks" placeholder="Payment collection remarks"></div>
                                     </div>
                                 </div>
-                                <div class="form-group" style="margin-bottom:1rem;">
+                                <div class="form-group" id="techCallStatusGroup" style="margin-bottom:1rem;">
                                     <label for="techCallStatus">Call Status</label>
                                     <select id="techCallStatus" required onchange="toggleHappinessCodeRequirement()">
                                         <option value="Closed">Closed (Requires Happiness Code)</option>
@@ -990,6 +1090,17 @@
                                         <option value="Pending for customer approval">Pending for customer approval</option>
                                         <option value="Resolved">Resolved (Awaiting Payment / Closure)</option>
                                     </select>
+                                </div>
+                                <div class="form-group" id="techInstallStatusGroup" style="margin-bottom:1rem;display:none;">
+                                    <label for="techInstallStatus">Installation Status</label>
+                                    <select id="techInstallStatus" required>
+                                        <option value="Work in Progress">Work in Progress</option>
+                                        <option value="Configuration Pending">Configuration Pending</option>
+                                        <option value="Pending due to material shortage">Pending due to material shortage</option>
+                                        <option value="Signature pending due to client unavailability">Signature pending due to client unavailability</option>
+                                        <option value="Site Completed and Handed Over">Site Completed and Handed Over</option>
+                                    </select>
+                                    <p class="lede" style="margin-top:0.4rem;">Final sign-off as "Closed" is confirmed by your manager once the site is marked handed over.</p>
                                 </div>
                                 <div id="happinessCodeBox" class="form-group" style="margin-bottom:1rem;background:#e0f2fe;padding:.75rem;border-radius:var(--radius-sm);border:1px solid #0284c7;">
                                     <label style="color:#0369a1;font-weight:bold;">🔑 Customer Happiness Code (Required to Close)</label>
@@ -1225,7 +1336,8 @@
             if (status === 'Unassigned') return 'badge-new';
             if (status === 'Assigned') return 'badge-assigned';
             if (status === 'Closed') return 'badge-closed';
-            if (typeof status === 'string' && status.startsWith('Pending')) return 'badge-pending';
+            if (status === 'Site Completed and Handed Over') return 'badge-resolved';
+            if (typeof status === 'string' && status.includes('Pending')) return 'badge-pending';
             return 'badge-assigned';
         }
 
@@ -1313,7 +1425,8 @@
                     <div class="form-group"><label>Asset Serial</label><input id="editTicketSerial" value="${esc(t.serial||'')}"></div>
                     <div class="form-group"><label>Coverage</label><select id="editTicketCoverage">${['Under Warranty','Out of Warranty','AMC','CAMC','Chargeable Service'].map(x=>`<option ${x===t.coverage?'selected':''}>${x}</option>`).join('')}</select></div>
                     <div class="form-group"><label>Priority</label><select id="editTicketPriority">${['Critical','High','Medium','Low'].map(x=>`<option ${x===t.priority?'selected':''}>${x}</option>`).join('')}</select></div>
-                    <div class="form-group"><label>Status</label><select id="editTicketStatus">${['Unassigned','Assigned','Pending for spares','Pending for tech support','Pending for customer approval','Resolved','Closed'].map(x=>`<option ${x===t.status?'selected':''}>${x}</option>`).join('')}</select></div>
+                    <div class="form-group"><label>Status</label><select id="editTicketStatus">${((t.jobType||'Complaint')==='Installation' ? ['Unassigned','Assigned','Work in Progress','Configuration Pending','Pending due to material shortage','Signature pending due to client unavailability','Site Completed and Handed Over','Closed'] : ['Unassigned','Assigned','Pending for spares','Pending for tech support','Pending for customer approval','Resolved','Closed']).map(x=>`<option ${x===t.status?'selected':''}>${x}</option>`).join('')}</select></div>
+                    <div class="form-group"><label>Job Type</label><input value="${esc(t.jobType||'Complaint')}" readonly></div>
                 </div>
                 <div class="form-group"><label>Issue Description</label><textarea id="editTicketDescription" rows="3">${esc(t.description||'')}</textarea></div>
                 <div class="info-block"><strong>Current Assignment</strong><p>${esc(namesDisplay)} — ${esc(t.visitDate||'')} ${esc(t.visitTime||'')}</p></div>
@@ -1499,6 +1612,7 @@
             if (viewId === 'asset-mgmt') renderAssetsView();
             if (viewId === 'log-complaints') renderLogComplaintsView();
             if (viewId === 'assign-tech') renderAssignTechView();
+            if (viewId === 'installations') renderInstallationsView();
             if (viewId === 'daily-schedule') renderDailySchedule();
             if (viewId === 'tech-mgmt') renderTechMgmtView();
             if (viewId === 'admin-reports') renderAdminReportsView();
@@ -1792,7 +1906,6 @@
 
         function updateComplaintFormMode() {
             const non = document.getElementById('compRequestType').value === 'NON_BTL';
-            const isInstall = document.getElementById('compJobType').value === 'Installation';
             ['compExistingCustomerGroup'].forEach(id=>{const e=document.getElementById(id); if(e)e.style.display=non?'none':'';});
             ['compNewCustomerGroup','compNewContactGroup','compNewSiteGroup'].forEach(id=>{const e=document.getElementById(id); if(e)e.style.display=non?'block':'none';});
             document.getElementById('compCustSelect').required=!non;
@@ -1800,14 +1913,9 @@
             document.getElementById('compNewCustomer').required=non;
             document.getElementById('compNewContact').required=non;
             document.getElementById('compNewSite').required=non;
-            // Asset serial isn't required for new installations (nothing's installed yet) or non-BTL requests
-            const hideAsset = non || isInstall;
-            const assetGroup = document.getElementById('compAssetGroup');
-            if (assetGroup) assetGroup.style.display = hideAsset ? 'none' : '';
-            document.getElementById('compAssetSelect').required = !hideAsset;
-            document.getElementById('compWarrantyStatus').value = non ? 'Non-BTL / No Asset' : (isInstall ? 'New Installation' : '');
-            const equipField = document.getElementById('compEquipmentDetails');
-            if (equipField) equipField.placeholder = isInstall ? 'Describe equipment to be installed (models, quantity, etc.)' : 'For Non-BTL requests, enter equipment or service details';
+            document.getElementById('compAssetGroup').style.display = non ? 'none' : '';
+            document.getElementById('compAssetSelect').required = !non;
+            document.getElementById('compWarrantyStatus').value = non ? 'Non-BTL / No Asset' : '';
         }
         async function populateSiteDropdownForComplaint() {
             const custName = document.getElementById('compCustSelect').value; const siteSelect=document.getElementById('compSiteSelect');
@@ -1843,9 +1951,9 @@
             const year=new Date().getFullYear(); const maxSeq=existingTickets.reduce((max,t)=>{const n=parseInt(String(t.id).slice(-6),10);return isNaN(n)?max:Math.max(max,n);},100); const id=`BTL-CMS-${year}-${String(maxSeq+1).padStart(6,'0')}`; const randomCode=Math.floor(1000+Math.random()*9000).toString();
             const customer=non?document.getElementById('compNewCustomer').value.trim():document.getElementById('compCustSelect').value; const site=non?document.getElementById('compNewSite').value.trim():document.getElementById('compSiteSelect').value;
             const chargeable=document.getElementById('compChargeable').value==='Yes' || document.getElementById('compCoverageType').value==='Chargeable Service' || document.getElementById('compCoverageType').value==='Out of Warranty';
-            const ticketObj={id,logDate:new Date().toISOString().split('T')[0],customer,site,serial:selectedSerial,coverage:document.getElementById('compCoverageType').value,priority:document.getElementById('compPriority').value,description:document.getElementById('compDescription').value,status:'Unassigned',technicianId:'Unassigned',technicianName:'Unassigned',happinessCode:randomCode,visitDate:'',visitTime:'',diagnosis:'',action:'',spares:'',issueImg:'',fixImg:''};
+            const ticketObj={id,logDate:new Date().toISOString().split('T')[0],customer,site,serial:selectedSerial,coverage:document.getElementById('compCoverageType').value,priority:document.getElementById('compPriority').value,description:document.getElementById('compDescription').value,status:'Unassigned',technicianId:'Unassigned',technicianName:'Unassigned',happinessCode:randomCode,visitDate:'',visitTime:'',diagnosis:'',action:'',spares:'',issueImg:'',fixImg:'',jobType:'Complaint'};
             await addRecord('tickets',ticketObj);
-            await updateTicketMetadata(id,{requestType:non?'Non-BTL':'BTL',jobType:document.getElementById('compJobType').value,contact:non?document.getElementById('compNewContact').value.trim():'',equipmentDetails:document.getElementById('compEquipmentDetails').value.trim(),chargeable,serviceCharge:document.getElementById('compServiceCharge').value,quotationAmount:document.getElementById('compQuotationAmount').value,invoiceNumber:document.getElementById('compInvoiceNumber').value.trim(),paymentStatus:chargeable?document.getElementById('compPaymentStatus').value:'Not Applicable',paymentReceivedDate:document.getElementById('compPaymentReceivedDate').value,paymentRemarks:document.getElementById('compPaymentRemarks').value.trim(),assignmentHistory:[],technicianIds:[],technicianNames:[]});
+            await updateTicketMetadata(id,{requestType:non?'Non-BTL':'BTL',contact:non?document.getElementById('compNewContact').value.trim():'',equipmentDetails:document.getElementById('compEquipmentDetails').value.trim(),chargeable,serviceCharge:document.getElementById('compServiceCharge').value,quotationAmount:document.getElementById('compQuotationAmount').value,invoiceNumber:document.getElementById('compInvoiceNumber').value.trim(),paymentStatus:chargeable?document.getElementById('compPaymentStatus').value:'Not Applicable',paymentReceivedDate:document.getElementById('compPaymentReceivedDate').value,paymentRemarks:document.getElementById('compPaymentRemarks').value.trim(),assignmentHistory:[],technicianIds:[],technicianNames:[]});
             await logAuditEvent('Complaint Logged',`Logged Ticket ${id} for ${customer}${non?' (Non-BTL / No Asset)':''}`); showToast(`Ticket ${id} logged. Happiness Code: ${randomCode}`); document.getElementById('complaintForm').reset(); updateComplaintFormMode(); toggleComplaintPaymentFields(); renderFilteredTickets();
         }
 
@@ -1856,6 +1964,7 @@
             const from = document.getElementById('ticketDateFrom')?.value || '';
             const to = document.getElementById('ticketDateTo')?.value || '';
             return list.filter(t => {
+                if ((t.jobType || 'Complaint') !== 'Complaint') return false;
                 if (statusFilter !== 'all' && t.status !== statusFilter) return false;
                 if (priorityFilter !== 'all' && t.priority !== priorityFilter) return false;
                 if (from && String(t.logDate || '') < from) return false;
@@ -1968,7 +2077,7 @@
         async function loadCurrentAssigneeInfo() {
             const ticketId=document.getElementById('ticketAssignSelect').value; const ticket=await getRecord('tickets',ticketId); if(!ticket)return;
             const currentIds = Array.isArray(ticket.technicianIds) && ticket.technicianIds.length ? ticket.technicianIds : (ticket.technicianId && ticket.technicianId!=='Unassigned' ? [ticket.technicianId] : []);
-            document.querySelectorAll('.tech-assign-checkbox').forEach(cb => { cb.checked = currentIds.includes(cb.value); });
+            document.querySelectorAll('#techAssignCheckboxList .tech-assign-checkbox').forEach(cb => { cb.checked = currentIds.includes(cb.value); });
             document.getElementById('currentTechDisplay').value = ticket.technicianName==='Unassigned'?'':(ticket.technicianName||'');
             document.getElementById('visitDate').value=ticket.visitDate||''; document.getElementById('visitTime').value=ticket.visitTime||''; document.getElementById('reassignmentReason').value='';
             const tickets=await getAllRecords('tickets'); const previous=tickets.filter(t=>t.id!==ticket.id&&t.site===ticket.site&&t.technicianId&&t.technicianId!=='Unassigned').sort((a,b)=>String(b.logDate||'').localeCompare(String(a.logDate||'')))[0];
@@ -2064,28 +2173,26 @@
             showToast(`Exported ${lastScheduleRows.length} scheduled task(s).`);
         }
 
-        async function handleAssignmentSubmit(e) {
-            e.preventDefault();
-            const ticketId=document.getElementById('ticketAssignSelect').value;
-            const checkedIds=[...document.querySelectorAll('.tech-assign-checkbox:checked')].map(cb=>cb.value);
-            if (!checkedIds.length) { showToast('Select at least one technician.', 'error'); return; }
-            const ticket=await getRecord('tickets',ticketId); if(!ticket) return;
+        // Shared by the Assign/Reassign Tech screen and the Installations tab.
+        // Returns true on success, false if validation failed (caller should not proceed further).
+        async function assignTechniciansToTicket(ticketId, checkedIds, visitDate, visitTime, reason) {
+            if (!checkedIds.length) { showToast('Select at least one technician.', 'error'); return false; }
+            const ticket=await getRecord('tickets',ticketId); if(!ticket) return false;
             const allTechs=await getAllRecords('technicians');
             const chosenTechs=checkedIds.map(id=>allTechs.find(t=>t.id===id)).filter(Boolean);
-            if (!chosenTechs.length) return;
+            if (!chosenTechs.length) return false;
 
             const oldIds=Array.isArray(ticket.technicianIds)&&ticket.technicianIds.length?ticket.technicianIds:(ticket.technicianId&&ticket.technicianId!=='Unassigned'?[ticket.technicianId]:[]);
             const isReassigned=oldIds.length>0 && (oldIds.length!==checkedIds.length || !oldIds.every(id=>checkedIds.includes(id)));
-            const reason=document.getElementById('reassignmentReason').value.trim();
-            if(isReassigned&&!reason){showToast('Please enter a reassignment reason.','error');return;}
+            if(isReassigned&&!reason){showToast('Please enter a reassignment reason.','error');return false;}
 
             ticket.technicianIds=chosenTechs.map(t=>t.id);
             ticket.technicianNames=chosenTechs.map(t=>t.name);
             ticket.technicianId=chosenTechs[0].id;
             ticket.technicianName=chosenTechs.map(t=>t.name).join(', ');
-            ticket.visitDate=document.getElementById('visitDate').value;
-            ticket.visitTime=document.getElementById('visitTime').value;
-            ticket.status='Assigned';
+            ticket.visitDate=visitDate;
+            ticket.visitTime=visitTime;
+            if (ticket.status === 'Unassigned') ticket.status='Assigned';
 
             const hist=ticket.assignmentHistory||[];
             hist.push({date:new Date().toLocaleString(),technicianId:ticket.technicianId,technicianName:ticket.technicianName,previousTechnicianId:oldIds.join(', ')||'Unassigned',action:isReassigned?'Reassigned':'Assigned',reason:reason||'Initial technician assignment'});
@@ -2094,8 +2201,169 @@
             await putRecord('tickets',ticket);
             await logAuditEvent(isReassigned?'Technician Reassigned':'Task Assigned',`${isReassigned?'Reassigned':'Assigned'} Ticket ${ticket.id} to ${ticket.technicianName}${reason?` — Reason: ${reason}`:''}`);
             showToast(`Task ${isReassigned?'reassigned':'assigned'} to ${ticket.technicianName}.`);
+            return true;
+        }
+
+        async function handleAssignmentSubmit(e) {
+            e.preventDefault();
+            const ticketId=document.getElementById('ticketAssignSelect').value;
+            const checkedIds=[...document.querySelectorAll('#techAssignCheckboxList .tech-assign-checkbox:checked')].map(cb=>cb.value);
+            const ok = await assignTechniciansToTicket(ticketId, checkedIds, document.getElementById('visitDate').value, document.getElementById('visitTime').value, document.getElementById('reassignmentReason').value.trim());
+            if (!ok) return;
             document.getElementById('assignForm').reset();
             renderAssignTechView();
+        }
+
+        /* ================= Installations ================= */
+        async function renderInstallationsView() {
+            const custSelect = document.getElementById('instCustSelect');
+            custSelect.innerHTML = "<option value=''>-- Select Customer --</option>";
+            (await getAllRecords('customers')).forEach(c => custSelect.innerHTML += `<option value="${esc(c.name)}">${esc(c.name)}</option>`);
+            toggleInstallationPaymentFields();
+            await renderInstallAssignDropdowns();
+            await renderInstallations();
+        }
+
+        function updateInstallationFormMode() {
+            const non = document.getElementById('instRequestType').value === 'NON_BTL';
+            document.getElementById('instExistingCustomerGroup').style.display = non ? 'none' : '';
+            ['instNewCustomerGroup','instNewContactGroup','instNewSiteGroup'].forEach(id=>{const e=document.getElementById(id); if(e) e.style.display = non ? 'block' : 'none';});
+            document.getElementById('instCustSelect').required = !non;
+            document.getElementById('instSiteSelect').required = !non;
+            document.getElementById('instNewCustomer').required = non;
+            document.getElementById('instNewContact').required = non;
+            document.getElementById('instNewSite').required = non;
+        }
+
+        async function populateSiteDropdownForInstallation() {
+            const custName = document.getElementById('instCustSelect').value;
+            const siteSelect = document.getElementById('instSiteSelect');
+            siteSelect.innerHTML = "<option value=''>-- Select Site --</option>";
+            const cust = (await getAllRecords('customers')).find(c => c.name === custName);
+            if (cust) cust.sites.forEach(s => siteSelect.innerHTML += `<option value="${esc(s.name)}">${esc(s.name)}</option>`);
+        }
+
+        function toggleInstallationPaymentFields() {
+            const enabled = document.getElementById('instChargeable').value === 'Yes';
+            document.getElementById('installationPaymentCard').style.display = enabled ? 'block' : 'none';
+            if (!enabled) {
+                ['instServiceCharge','instQuotationAmount','instInvoiceNumber'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+                const ps = document.getElementById('instPaymentStatus'); if (ps) ps.value = 'Not Applicable';
+            }
+        }
+
+        async function handleInstallationSubmit(e) {
+            e.preventDefault();
+            const non = document.getElementById('instRequestType').value === 'NON_BTL';
+            const customer = non ? document.getElementById('instNewCustomer').value.trim() : document.getElementById('instCustSelect').value;
+            const site = non ? document.getElementById('instNewSite').value.trim() : document.getElementById('instSiteSelect').value;
+            if (!customer || !site) { showToast('Customer and site are required.', 'error'); return; }
+            const existingTickets = await getAllRecords('tickets');
+            const year = new Date().getFullYear();
+            const maxSeq = existingTickets.reduce((max,t)=>{const n=parseInt(String(t.id).slice(-6),10);return isNaN(n)?max:Math.max(max,n);},100);
+            const id = `BTL-CMS-${year}-${String(maxSeq+1).padStart(6,'0')}`;
+            const randomCode = Math.floor(1000+Math.random()*9000).toString();
+            const chargeable = document.getElementById('instChargeable').value === 'Yes';
+            const ticketObj = {
+                id, logDate:new Date().toISOString().split('T')[0], customer, site, serial:'', coverage:'Not Applicable',
+                priority:document.getElementById('instPriority').value, description:document.getElementById('instDescription').value.trim(),
+                status:'Unassigned', technicianId:'Unassigned', technicianName:'Unassigned', happinessCode:randomCode,
+                visitDate:'', visitTime:'', diagnosis:'', action:'', spares:'', issueImg:'', fixImg:'', jobType:'Installation'
+            };
+            await addRecord('tickets', ticketObj);
+            await updateTicketMetadata(id, {
+                requestType: non?'Non-BTL':'BTL', contact: non?document.getElementById('instNewContact').value.trim():'',
+                equipmentDetails: document.getElementById('instEquipmentDetails').value.trim(), chargeable,
+                serviceCharge: document.getElementById('instServiceCharge').value, quotationAmount: document.getElementById('instQuotationAmount').value,
+                invoiceNumber: document.getElementById('instInvoiceNumber').value.trim(), paymentStatus: chargeable?document.getElementById('instPaymentStatus').value:'Not Applicable',
+                assignmentHistory: [], technicianIds: [], technicianNames: []
+            });
+            await logAuditEvent('Installation Logged', `Logged Installation ${id} for ${customer}${non?' (New Customer)':''}`);
+            showToast(`Installation ${id} logged.`);
+            document.getElementById('installationForm').reset();
+            updateInstallationFormMode(); toggleInstallationPaymentFields();
+            renderInstallationsView();
+        }
+
+        function filterInstallationList(list) {
+            const q = (document.getElementById('installSearchInput')?.value || '').trim().toLowerCase();
+            const statusFilter = document.getElementById('installStatusFilter')?.value || 'all';
+            return list.filter(t => {
+                if ((t.jobType||'Complaint') !== 'Installation') return false;
+                if (statusFilter !== 'all' && t.status !== statusFilter) return false;
+                if (q && ![t.id,t.customer,t.site,t.technicianName].some(v=>String(v||'').toLowerCase().includes(q))) return false;
+                return true;
+            });
+        }
+
+        async function renderInstallations() {
+            const tbody = document.getElementById('installation-table-body');
+            tbody.innerHTML = '';
+            const list = filterInstallationList(await getAllRecords('tickets'));
+            if (!list.length) { tbody.innerHTML = `<tr><td colspan="6" class="empty-note">No installation jobs match your filters.</td></tr>`; return; }
+            list.forEach(t => {
+                const canComplete = t.status === 'Site Completed and Handed Over';
+                const safeId = String(t.id).replace(/'/g, "\\'");
+                tbody.innerHTML += `<tr>
+                    <td><span class="clickable-id" onclick="openComplaintModal('${safeId}')">${esc(t.id)}</span></td>
+                    <td>${esc(t.customer)} (${esc(t.site)})</td>
+                    <td>${esc(t.technicianName||'Unassigned')}</td>
+                    <td>${esc(t.visitDate||'')} ${esc(t.visitTime||'')}</td>
+                    <td><span class="badge ${statusBadgeClass(t.status)}">${esc(t.status)}</span></td>
+                    <td class="row-actions">
+                        ${canComplete ? `<button type="button" class="btn-success btn-sm" onclick="markInstallationCompleted('${safeId}')">✔ Mark Completed</button>` : ''}
+                        <button type="button" class="btn-secondary btn-sm" onclick="openComplaintModal('${safeId}')">View</button>
+                    </td>
+                </tr>`;
+            });
+        }
+
+        async function markInstallationCompleted(ticketId) {
+            const t = await getRecord('tickets', ticketId); if (!t) return;
+            if (t.status !== 'Site Completed and Handed Over') { showToast('This installation has not yet been marked as handed over by the technician.', 'error'); return; }
+            const ok = await askConfirm(`Confirm installation ${ticketId} at ${t.customer} (${t.site}) as fully completed and closed? This should only be done once you've verified the site.`, 'Mark Installation Completed');
+            if (!ok) return;
+            t.status = 'Closed';
+            t.closedDate = new Date().toISOString().split('T')[0];
+            await putRecord('tickets', t);
+            await logAuditEvent('Installation Completed', `Manager confirmed completion of Installation ${ticketId} at ${t.customer} (${t.site}).`);
+            showToast(`Installation ${ticketId} marked completed.`);
+            renderInstallations();
+        }
+
+        async function renderInstallAssignDropdowns() {
+            const ticketSelect = document.getElementById('instAssignSelect');
+            ticketSelect.innerHTML = '<option value="">-- Select Installation --</option>';
+            (await getAllRecords('tickets')).filter(t => (t.jobType||'Complaint')==='Installation' && t.status !== 'Closed').forEach(t => {
+                ticketSelect.innerHTML += `<option value="${t.id}">${esc(t.id)} - ${esc(t.customer)} (${esc(t.status)})</option>`;
+            });
+            const checkboxList = document.getElementById('instTechAssignCheckboxList');
+            const activeTechs = (await getAllRecords('technicians')).filter(t => t.status !== 'Resigned');
+            checkboxList.innerHTML = activeTechs.length
+                ? activeTechs.map(t => `<label style="display:flex;align-items:center;gap:0.5rem;font-size:0.85rem;cursor:pointer;"><input type="checkbox" class="inst-tech-assign-checkbox" value="${esc(t.id)}"> ${esc(t.name)} <span class="mono" style="color:var(--muted);">(${esc(t.id)})</span>${t.specialization?` <span style="color:var(--muted);">— ${esc(t.specialization)}</span>`:''}</label>`).join('')
+                : '<span style="color:var(--muted);font-size:0.85rem;">No active technicians available.</span>';
+        }
+
+        async function loadInstallAssigneeInfo() {
+            const ticketId = document.getElementById('instAssignSelect').value;
+            const ticket = await getRecord('tickets', ticketId); if (!ticket) return;
+            const currentIds = Array.isArray(ticket.technicianIds) && ticket.technicianIds.length ? ticket.technicianIds : (ticket.technicianId && ticket.technicianId!=='Unassigned' ? [ticket.technicianId] : []);
+            document.querySelectorAll('#instTechAssignCheckboxList .inst-tech-assign-checkbox').forEach(cb => { cb.checked = currentIds.includes(cb.value); });
+            document.getElementById('instCurrentTechDisplay').value = ticket.technicianName==='Unassigned' ? '' : (ticket.technicianName||'');
+            document.getElementById('instVisitDate').value = ticket.visitDate||'';
+            document.getElementById('instVisitTime').value = ticket.visitTime||'';
+            document.getElementById('instReassignmentReason').value = '';
+        }
+
+        async function handleInstallAssignmentSubmit(e) {
+            e.preventDefault();
+            const ticketId = document.getElementById('instAssignSelect').value;
+            const checkedIds = [...document.querySelectorAll('#instTechAssignCheckboxList .inst-tech-assign-checkbox:checked')].map(cb=>cb.value);
+            const ok = await assignTechniciansToTicket(ticketId, checkedIds, document.getElementById('instVisitDate').value, document.getElementById('instVisitTime').value, document.getElementById('instReassignmentReason').value.trim());
+            if (!ok) return;
+            document.getElementById('installAssignForm').reset();
+            await renderInstallAssignDropdowns();
+            await renderInstallations();
         }
 
         /* ================= Technician Directory ================= */
@@ -2400,7 +2668,7 @@
         function techDate(t) { return t.closedDate || t.updatedAt || t.logDate || ''; }
 
         function techStatusBadge(status) {
-            return `<span class="badge">${esc(status || '—')}</span>`;
+            return `<span class="badge ${statusBadgeClass(status)}">${esc(status || '—')}</span>`;
         }
 
         async function renderTechDashboard() {
@@ -2440,8 +2708,9 @@
             const info = document.getElementById('techSelectedComplaint');
             if (!t || !techMine(t)) { info.style.display='none'; return; }
             info.style.display='block';
+            const isInstall = (t.jobType||'Complaint') === 'Installation';
             const chargeable=!!t.chargeable || t.coverage==='Chargeable Service' || t.coverage==='Out of Warranty';
-            info.innerHTML = `<h3>Complaint Details</h3><div class="form-grid"><div><strong>Ticket:</strong> ${esc(t.id)}<br><strong>Date:</strong> ${esc(t.logDate)}<br><strong>Customer:</strong> ${esc(t.customer)}<br><strong>Site:</strong> ${esc(t.site)}</div><div><strong>Asset Serial:</strong> ${esc(t.serial||'Non-BTL / No Asset')}<br><strong>Priority:</strong> ${esc(t.priority)}<br><strong>Coverage:</strong> ${esc(t.coverage)}<br><strong>Status:</strong> ${techStatusBadge(t.status)}<br><strong>Visit:</strong> ${esc(t.visitDate || '—')} ${esc(t.visitTime || '')}</div></div><hr><p><strong>Complaint:</strong> ${esc(t.description || '—')}</p><p><strong>Payment Due:</strong> ${esc(t.paymentStatus||'Not Applicable')} | Service Charge: ${esc(t.serviceCharge||'0')} | Quotation: ${esc(t.quotationAmount||'0')} | Invoice: ${esc(t.invoiceNumber||'—')}</p>`;
+            info.innerHTML = `<h3>${isInstall?'Installation':'Complaint'} Details</h3><div class="form-grid"><div><strong>Ticket:</strong> ${esc(t.id)}<br><strong>Date:</strong> ${esc(t.logDate)}<br><strong>Customer:</strong> ${esc(t.customer)}<br><strong>Site:</strong> ${esc(t.site)}</div><div><strong>Asset Serial:</strong> ${esc(t.serial||'Non-BTL / No Asset')}<br><strong>Priority:</strong> ${esc(t.priority)}<br><strong>Coverage:</strong> ${esc(t.coverage)}<br><strong>Status:</strong> ${techStatusBadge(t.status)}<br><strong>Visit:</strong> ${esc(t.visitDate || '—')} ${esc(t.visitTime || '')}</div></div><hr><p><strong>${isInstall?'Installation Details':'Complaint'}:</strong> ${esc(t.description || '—')}</p><p><strong>Payment Due:</strong> ${esc(t.paymentStatus||'Not Applicable')} | Service Charge: ${esc(t.serviceCharge||'0')} | Quotation: ${esc(t.quotationAmount||'0')} | Invoice: ${esc(t.invoiceNumber||'—')}</p>`;
             const pc=document.getElementById('techPaymentCollectionCard'); pc.style.display=chargeable?'block':'none';
             document.getElementById('techPaymentSummary').innerHTML=chargeable?`<strong>Payment Status:</strong> ${esc(t.paymentStatus||'Pending')} &nbsp; | &nbsp; <strong>Service Charge:</strong> ${esc(t.serviceCharge||'0')} &nbsp; | &nbsp; <strong>Quotation:</strong> ${esc(t.quotationAmount||'0')} &nbsp; | &nbsp; <strong>Invoice:</strong> ${esc(t.invoiceNumber||'—')}<br><strong>Collected:</strong> ${esc(t.paymentAmountCollected||'0')} via ${esc(t.paymentMode||'—')} on ${esc(t.paymentReceivedDate||'—')}`:'Payment collection is not required for this complaint.';
             document.getElementById('techPaymentCollectionStatus').value=t.paymentCollectionStatus||'Not Collected'; document.getElementById('techPaymentAmountCollected').value=t.paymentAmountCollected||''; document.getElementById('techPaymentMode').value=t.paymentMode||''; document.getElementById('techPaymentReference').value=t.paymentReference||''; document.getElementById('techPaymentDate').value=t.paymentReceivedDate||''; document.getElementById('techPaymentCollectorRemarks').value=t.paymentCollectorRemarks||''; toggleTechPaymentCollectionFields();
@@ -2449,7 +2718,14 @@
             document.getElementById('techAction').value = t.action || '';
             document.getElementById('techSpares').value = t.spares || '';
             document.getElementById('chkSparesRequired').checked = !!t.spares;
-            document.getElementById('techCallStatus').value = ['Assigned','Unassigned'].includes(t.status) ? 'Resolved' : t.status;
+            document.getElementById('techCallStatusGroup').style.display = isInstall ? 'none' : '';
+            document.getElementById('techInstallStatusGroup').style.display = isInstall ? '' : 'none';
+            const installStatuses = ['Work in Progress','Configuration Pending','Pending due to material shortage','Signature pending due to client unavailability','Site Completed and Handed Over'];
+            if (isInstall) {
+                document.getElementById('techInstallStatus').value = installStatuses.includes(t.status) ? t.status : 'Work in Progress';
+            } else {
+                document.getElementById('techCallStatus').value = ['Assigned','Unassigned'].includes(t.status) ? 'Resolved' : t.status;
+            }
             document.getElementById('techHappinessCode').value = '';
             document.getElementById('techCustomerRemarks').value = t.customerRemarks || '';
             document.getElementById('techTechnicianRemarks').value = t.technicianRemarks || '';
@@ -2463,7 +2739,9 @@
         function captureSupportingFiles(input){ const files=[...input.files].map(f=>({name:f.name,type:f.type,size:f.size})); document.getElementById('techSupportingFiles').value=JSON.stringify(files); }
         function toggleTechPaymentCollectionFields(){ const collected=document.getElementById('techPaymentCollectionStatus')?.value==='Collected'; ['techPaymentAmountCollected','techPaymentMode','techPaymentReference','techPaymentDate','techPaymentCollectorRemarks'].forEach(id=>{const el=document.getElementById(id);if(el)el.disabled=!collected;}); }
         async function handleTechAppSubmit(e) {
-            e.preventDefault(); const id=document.getElementById('techTicketSelect').value, statusSelection=document.getElementById('techCallStatus').value, ticket=await getRecord('tickets',id); if(!ticket||!techMine(ticket)){showToast('Please select one of your assigned complaints.','error');return;}
+            e.preventDefault(); const id=document.getElementById('techTicketSelect').value, ticket=await getRecord('tickets',id); if(!ticket||!techMine(ticket)){showToast('Please select one of your assigned complaints.','error');return;}
+            const isInstall = (ticket.jobType||'Complaint') === 'Installation';
+            const statusSelection = isInstall ? document.getElementById('techInstallStatus').value : document.getElementById('techCallStatus').value;
             const chargeable=!!ticket.chargeable || ticket.coverage==='Chargeable Service' || ticket.coverage==='Out of Warranty'; const paymentStatus=ticket.paymentStatus||'Not Applicable';
             if(statusSelection==='Closed'){ if(chargeable&&paymentStatus!=='Paid'){showToast('Chargeable complaint cannot be finally closed until payment status is Paid.','error');return;} const code=document.getElementById('techHappinessCode').value.trim(); if(code!==ticket.happinessCode){showToast('Invalid Happiness Code. Please enter the code provided by the customer.','error');return;} ticket.closedDate=new Date().toISOString().split('T')[0]; }
             ticket.diagnosis=document.getElementById('techDiagnosis').value; ticket.action=document.getElementById('techAction').value; ticket.spares=document.getElementById('chkSparesRequired').checked?document.getElementById('techSpares').value:''; ticket.status=statusSelection; ticket.issueImg=document.getElementById('issueImgBase64').value||ticket.issueImg; ticket.fixImg=document.getElementById('fixImgBase64').value||ticket.fixImg; ticket.updatedAt=new Date().toISOString();
@@ -2517,7 +2795,9 @@
             const chk=document.getElementById('chkSparesRequired'); document.getElementById('sparesContainer').style.display=chk.checked?'block':'none';
         }
         function toggleHappinessCodeRequirement() {
-            const status=document.getElementById('techCallStatus').value; document.getElementById('happinessCodeBox').style.display=status==='Closed'?'block':'none';
+            const complaintGroupVisible = document.getElementById('techCallStatusGroup').style.display !== 'none';
+            const status=document.getElementById('techCallStatus').value;
+            document.getElementById('happinessCodeBox').style.display = (complaintGroupVisible && status==='Closed') ? 'block' : 'none';
         }
 
         async function renderTechAppView() {
