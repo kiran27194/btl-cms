@@ -1139,6 +1139,16 @@
             return true;
         }
 
+        // Patches an EXISTING record only — never creates a new row. Unlike upsert(), if the
+        // key doesn't match any row, this simply updates zero rows instead of attempting a
+        // malformed insert (which previously caused NOT NULL errors on required columns that
+        // weren't part of the patch, e.g. "customer" on tickets).
+        async function updateRecord(store, key, patch) {
+            const { error } = await sb.from(STORE_TABLE[store]).update(toDbRow(store, patch)).eq(PK[store], key);
+            if (error) { reportDbError('Save', error); throw error; }
+            return true;
+        }
+
         async function addRecord(store, obj) {
             const { error } = await sb.from(STORE_TABLE[store]).insert(toDbRow(store, obj));
             if (error) { reportDbError('Save', error); throw error; }
@@ -1651,9 +1661,9 @@
 
         /* ================= Warranty Calculation Helpers ================= */
         // Ticket "metadata" fields (payment, remarks, ratings, etc.) are real Postgres columns now —
-        // this does a partial upsert (Supabase only updates the columns you pass, others are untouched).
+        // this patches an existing ticket only (see updateRecord above for why that matters).
         async function updateTicketMetadata(id, patch) {
-            await putRecord('tickets', { id, ...patch });
+            await updateRecord('tickets', id, patch);
         }
         function addMonthsSafe(dateStr, months) {
             const d = new Date(dateStr + 'T00:00:00');
@@ -2354,7 +2364,7 @@
 
         async function populatePaymentTicketSelect(){ const el=document.getElementById('paymentTicketSelect'); if(!el)return; const current=el.value; el.innerHTML='<option value="">-- Select Chargeable Ticket --</option>'; const list=(await getAllRecords('tickets')).filter(t=>t.chargeable||t.coverage==='Chargeable Service'||t.coverage==='Out of Warranty'); list.forEach(t=>el.innerHTML+=`<option value="${esc(t.id)}">${esc(t.id)} - ${esc(t.customer)} - ${esc(t.paymentStatus||'Pending')}</option>`); if(list.some(t=>t.id===current))el.value=current; }
         async function loadPaymentTicket(){ const id=document.getElementById('paymentTicketSelect')?.value; if(!id)return; const t=await getRecord('tickets',id); if(!t)return; document.getElementById('adminServiceCharge').value=t.serviceCharge||''; document.getElementById('adminQuotationAmount').value=t.quotationAmount||''; document.getElementById('adminInvoiceNumber').value=t.invoiceNumber||''; document.getElementById('adminPaymentStatus').value=t.paymentStatus||'Pending'; document.getElementById('adminPaymentReceivedDate').value=t.paymentReceivedDate||''; document.getElementById('adminPaymentRemarks').value=t.paymentRemarks||''; }
-        async function savePaymentDetails(){ const id=document.getElementById('paymentTicketSelect').value; if(!id){showToast('Select a chargeable ticket first.','error');return;} await updateTicketMetadata(id,{chargeable:true,serviceCharge:document.getElementById('adminServiceCharge').value,quotationAmount:document.getElementById('adminQuotationAmount').value,invoiceNumber:document.getElementById('adminInvoiceNumber').value.trim(),paymentStatus:document.getElementById('adminPaymentStatus').value,paymentReceivedDate:document.getElementById('adminPaymentReceivedDate').value,paymentRemarks:document.getElementById('adminPaymentRemarks').value.trim()}); await logAuditEvent('Payment Details Updated',`Updated payment details for Ticket ${id} — Status: ${document.getElementById('adminPaymentStatus').value}`); showToast('Payment details saved.'); renderPaymentReport(); populatePaymentTicketSelect(); }
+        async function savePaymentDetails(){ const id=document.getElementById('paymentTicketSelect').value; if(!id){showToast('Select a chargeable ticket first.','error');return;} const exists=await getRecord('tickets',id); if(!exists){showToast('That ticket no longer exists — refresh and try again.','error'); populatePaymentTicketSelect(); return;} await updateTicketMetadata(id,{chargeable:true,serviceCharge:document.getElementById('adminServiceCharge').value,quotationAmount:document.getElementById('adminQuotationAmount').value,invoiceNumber:document.getElementById('adminInvoiceNumber').value.trim(),paymentStatus:document.getElementById('adminPaymentStatus').value,paymentReceivedDate:document.getElementById('adminPaymentReceivedDate').value,paymentRemarks:document.getElementById('adminPaymentRemarks').value.trim()}); await logAuditEvent('Payment Details Updated',`Updated payment details for Ticket ${id} — Status: ${document.getElementById('adminPaymentStatus').value}`); showToast('Payment details saved.'); renderPaymentReport(); populatePaymentTicketSelect(); }
 
         /* ================= Audit Logs View ================= */
         async function renderAuditLogsView() {
