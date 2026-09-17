@@ -176,6 +176,7 @@
         button:hover { background-color: var(--brand-dark); }
         button:active { transform: translateY(1px); }
         button.btn-secondary { background: var(--surface); color: var(--ink-soft); border: 1px solid var(--border-strong); }
+        button.wa-missing { background: var(--amber-tint); color: var(--amber); border: 1px dashed var(--amber); opacity: 1; cursor: not-allowed; }
         button.btn-secondary:hover { background: var(--bg); }
         button.btn-danger { background-color: var(--red); }
         button.btn-danger:hover { background-color: #a02a22; }
@@ -622,7 +623,7 @@
                     </div>
                     <div class="table-scroll">
                         <table>
-                            <thead><tr><th>Ticket ID</th><th>Log Date</th><th>Customer &amp; Site</th><th>Serial</th><th>Priority</th><th>Assigned Tech</th><th>Status</th><th>Actions</th></tr></thead>
+                            <thead><tr><th>Ticket ID</th><th>Log Date</th><th>Customer &amp; Site</th><th>Serial</th><th>Priority</th><th>Assigned Tech</th><th>Status</th><th>Notify Technician</th><th>Actions</th></tr></thead>
                             <tbody id="complaint-table-body"></tbody>
                         </table>
                     </div>
@@ -728,7 +729,7 @@
                     </div>
                     <div class="table-scroll">
                         <table>
-                            <thead><tr><th>Ticket ID</th><th>Customer &amp; Site</th><th>Technician(s)</th><th>Scheduled Visit</th><th>Status</th><th>Actions</th></tr></thead>
+                            <thead><tr><th>Ticket ID</th><th>Customer &amp; Site</th><th>Technician(s)</th><th>Scheduled Visit</th><th>Status</th><th>Notify Technician</th><th>Actions</th></tr></thead>
                             <tbody id="installation-table-body"></tbody>
                         </table>
                     </div>
@@ -1143,7 +1144,17 @@
         /* ================= Database Core Architecture (Supabase / Postgres) ================= */
         const SUPABASE_URL = 'https://puwevuvzckmivmlengua.supabase.co';
         const SUPABASE_ANON_KEY = 'sb_publishable_Mu7tTJotq1mv07OFnujbKw_rLtVEKEb';
-        const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        // Guarded: if the CDN library (cdn.jsdelivr.net) is blocked by a firewall, VPN, or
+        // ad-blocker, `window.supabase` won't exist. Without this guard, the line below would
+        // throw at the top level and silently kill the ENTIRE script — including the boot
+        // sequence that's supposed to show an error — leaving the loading spinner stuck forever
+        // with no way to diagnose it. See the DOMContentLoaded handler for the user-facing error.
+        let sb = null;
+        try {
+            sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        } catch (e) {
+            console.error('Failed to initialize Supabase client:', e);
+        }
 
         let currentRole = 'staff';
         let loginMode = 'staff';
@@ -1318,7 +1329,9 @@
             window.open(url, '_blank');
         }
         function waButton(rawNumber, message, label) {
-            if (!formatWhatsAppNumber(rawNumber)) return '';
+            if (!formatWhatsAppNumber(rawNumber)) {
+                return `<button type="button" class="btn-secondary btn-sm wa-missing" disabled title="Add a mobile number for this contact to enable WhatsApp notification">⚠️ ${esc(label)} — No Mobile</button>`;
+            }
             return `<button type="button" class="btn-success btn-sm" data-wa-number="${esc(rawNumber)}" data-wa-message="${esc(message)}" onclick="openWhatsApp(this.dataset.waNumber, this.dataset.waMessage)">💬 ${esc(label)}</button>`;
         }
         // Builds a WhatsApp message formatted as an aligned monospace "table" using a bold
@@ -2000,10 +2013,17 @@
             tbody.innerHTML = "";
             const list = filterTicketList(await getAllRecords('tickets'));
             if (list.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="8" class="empty-note">No tickets match your filters.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="9" class="empty-note">No tickets match your filters.</td></tr>`;
                 return;
             }
+            const technicians = await getAllRecords('technicians');
             list.forEach(t => {
+                const techIds = Array.isArray(t.technicianIds) && t.technicianIds.length ? t.technicianIds : (t.technicianId && t.technicianId !== 'Unassigned' ? [t.technicianId] : []);
+                const techs = techIds.map(id => technicians.find(x => x.id === id)).filter(Boolean);
+                const techMsg = waTable('New Assignment', [['Ticket ID', t.id], ['Customer', t.customer], ['Site', t.site], ['Issue', t.description], ['Visit Date', t.visitDate || 'TBD'], ['Visit Time', t.visitTime || '']]);
+                const notifyCell = techs.length
+                    ? techs.map(tech => waButton(tech.mobile, techMsg, tech.name.split(' ')[0])).join(' ')
+                    : '<span style="color:var(--muted);font-size:0.78rem;">Not yet assigned</span>';
                 tbody.innerHTML += `
                     <tr>
                         <td><span class="clickable-id" onclick="openComplaintModal('${t.id}')">${esc(t.id)}</span></td>
@@ -2013,6 +2033,7 @@
                         <td><span class="badge ${priorityBadgeClass(t.priority)}">${esc(t.priority)}</span></td>
                         <td>${esc(t.technicianName)}</td>
                         <td><span class="badge ${statusBadgeClass(t.status)}">${esc(t.status)}</span></td>
+                        <td>${notifyCell}</td>
                         <td><button type="button" class="btn-secondary btn-sm" onclick="openComplaintModal('${String(t.id).replace(/'/g,"\'")}')">View / Edit</button> <button type="button" class="btn-danger btn-sm" onclick="deleteComplaint('${String(t.id).replace(/'/g,"\'")}')">Delete</button></td>
                     </tr>`;
             });
@@ -2321,16 +2342,24 @@
             const tbody = document.getElementById('installation-table-body');
             tbody.innerHTML = '';
             const list = filterInstallationList(await getAllRecords('tickets'));
-            if (!list.length) { tbody.innerHTML = `<tr><td colspan="6" class="empty-note">No installation jobs match your filters.</td></tr>`; return; }
+            if (!list.length) { tbody.innerHTML = `<tr><td colspan="7" class="empty-note">No installation jobs match your filters.</td></tr>`; return; }
+            const technicians = await getAllRecords('technicians');
             list.forEach(t => {
                 const canComplete = t.status === 'Site Completed and Handed Over';
                 const safeId = String(t.id).replace(/'/g, "\\'");
+                const techIds = Array.isArray(t.technicianIds) && t.technicianIds.length ? t.technicianIds : (t.technicianId && t.technicianId !== 'Unassigned' ? [t.technicianId] : []);
+                const techs = techIds.map(id => technicians.find(x => x.id === id)).filter(Boolean);
+                const techMsg = waTable('New Installation Assignment', [['Ticket ID', t.id], ['Customer', t.customer], ['Site', t.site], ['Notes', t.description], ['Visit Date', t.visitDate || 'TBD'], ['Visit Time', t.visitTime || '']]);
+                const notifyCell = techs.length
+                    ? techs.map(tech => waButton(tech.mobile, techMsg, tech.name.split(' ')[0])).join(' ')
+                    : '<span style="color:var(--muted);font-size:0.78rem;">Not yet assigned</span>';
                 tbody.innerHTML += `<tr>
                     <td><span class="clickable-id" onclick="openComplaintModal('${safeId}')">${esc(t.id)}</span></td>
                     <td>${esc(t.customer)} (${esc(t.site)})</td>
                     <td>${esc(t.technicianName||'Unassigned')}</td>
                     <td>${esc(t.visitDate||'')} ${esc(t.visitTime||'')}</td>
                     <td><span class="badge ${statusBadgeClass(t.status)}">${esc(t.status)}</span></td>
+                    <td>${notifyCell}</td>
                     <td class="row-actions">
                         ${canComplete ? `<button type="button" class="btn-success btn-sm" onclick="markInstallationCompleted('${safeId}')">✔ Mark Completed</button>` : ''}
                         <button type="button" class="btn-secondary btn-sm" onclick="openComplaintModal('${safeId}')">View</button>
@@ -2833,16 +2862,40 @@
             toggleSparesHighlight(); toggleHappinessCodeRequirement();
         }
 
+        function withTimeout(promise, ms, label) {
+            return Promise.race([
+                promise,
+                new Promise((_, reject) => setTimeout(() => reject(new Error(`${label} timed out after ${ms / 1000}s`)), ms))
+            ]);
+        }
+
+        function showBootError(message) {
+            const el = document.getElementById('appLoading');
+            el.innerHTML = `<div style="max-width:440px;text-align:center;padding:0 1.5rem;">
+                <div style="font-size:1.5rem;margin-bottom:0.5rem;">⚠️</div>
+                <strong style="color:#fca5a5;">Could not connect</strong>
+                <p style="margin:0.5rem 0 1rem;color:#cbd5e1;font-size:0.88rem;">${esc(message)}</p>
+                <p style="margin:0 0 1rem;color:#7c8aa3;font-size:0.8rem;">This is usually caused by a firewall, VPN, or browser extension blocking access to Supabase or its CDN library. Try a different network, disable blocking extensions, or contact your IT team, then reload.</p>
+                <button onclick="location.reload()">Reload Page</button>
+            </div>`;
+            el.style.display = 'flex';
+            el.style.flexDirection = 'column';
+        }
+
         window.addEventListener('DOMContentLoaded', async () => {
             let resumed = false;
             try {
-                await initDB();
-                resumed = await restoreSession();
-            } finally {
-                document.getElementById('appLoading').style.display = 'none';
-                if (!resumed) document.getElementById('loginOverlay').style.display = 'flex';
-                renderDashboard();
+                if (!sb) throw new Error('The Supabase client library failed to load from the CDN.');
+                await withTimeout(initDB(), 15000, 'Connecting to Supabase');
+                resumed = await withTimeout(restoreSession(), 10000, 'Restoring session');
+            } catch (err) {
+                console.error('Boot error:', err);
+                showBootError(err.message || 'Unknown error');
+                return;
             }
+            document.getElementById('appLoading').style.display = 'none';
+            if (!resumed) document.getElementById('loginOverlay').style.display = 'flex';
+            renderDashboard();
         });
     </script>
 </body>
