@@ -799,6 +799,7 @@
                             <button type="button" class="btn-secondary" onclick="shiftScheduleDate(1)">Next Day ▶</button>
                             <button type="button" onclick="window.print()">🖨️ Print</button>
                             <button type="button" class="btn-secondary" onclick="exportDailyScheduleCSV()">⬇ Download CSV</button>
+                            <button type="button" class="btn-success" onclick="shareDailyScheduleWhatsApp()">💬 Share via WhatsApp</button>
                         </div>
                     </div>
                     <div class="print-target">
@@ -1308,6 +1309,17 @@
 
 
         /* ================= Utilities: escaping, badges, toasts, confirm ================= */
+        // Formats a Date using its LOCAL calendar fields (year/month/day), never UTC.
+        // toISOString() converts to UTC first, which silently rolls the date back a day
+        // for any positive-offset timezone (e.g. IST, UTC+5:30) whenever the local time
+        // is near midnight — this broke date arithmetic like "Next Day" in Daily Schedule.
+        function toLocalDateStr(d) {
+            const yyyy = d.getFullYear();
+            const mm = String(d.getMonth() + 1).padStart(2, '0');
+            const dd = String(d.getDate()).padStart(2, '0');
+            return `${yyyy}-${mm}-${dd}`;
+        }
+
         function esc(str) {
             return String(str ?? '').replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
         }
@@ -1463,7 +1475,7 @@
             t.logDate=document.getElementById('editTicketLogDate').value; t.customer=document.getElementById('editTicketCustomer').value.trim(); t.site=document.getElementById('editTicketSite').value.trim(); t.serial=document.getElementById('editTicketSerial').value.trim(); t.coverage=document.getElementById('editTicketCoverage').value; t.priority=document.getElementById('editTicketPriority').value; t.status=document.getElementById('editTicketStatus').value; t.description=document.getElementById('editTicketDescription').value.trim();
             if(!t.customer||!t.site||!t.description){showToast('Customer, site and issue description are required.','error');return;}
             if(t.status==='Unassigned'){t.technicianId='Unassigned';t.technicianName='Unassigned';t.visitDate='';t.visitTime='';}
-            if(t.status==='Closed'&&oldStatus!=='Closed'){ if(!t.closedDate) t.closedDate=new Date().toISOString().split('T')[0]; await awardTechnicianCredits(t); }
+            if(t.status==='Closed'&&oldStatus!=='Closed'){ if(!t.closedDate) t.closedDate=toLocalDateStr(new Date()); await awardTechnicianCredits(t); }
             await putRecord('tickets',t); await logAuditEvent('Complaint Edited',`Edited Ticket ${ticketId}${oldStatus!==t.status?` — Status changed from ${oldStatus} to ${t.status}`:''}`); showToast(`Complaint ${ticketId} updated.`); closeComplaintModal(); renderFilteredTickets(); renderAssignTechView();
         }
 
@@ -1815,7 +1827,7 @@
             d.setDate(1); d.setMonth(d.getMonth() + months);
             const last = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
             d.setDate(Math.min(day, last));
-            return d.toISOString().split('T')[0];
+            return toLocalDateStr(d);
         }
         function calculateWarrantyExpiry(entryDate, warranty) {
             if (!entryDate || warranty === 'No Warranty') return '';
@@ -1835,7 +1847,7 @@
         function assetRowHTML(values = {}) {
             const category = values.category || 'CCTV & Video Surveillance';
             const warranty = values.warrantyValidity || 'No Warranty';
-            const entryDate = values.entryDate || new Date().toISOString().split('T')[0];
+            const entryDate = values.entryDate || toLocalDateStr(new Date());
             const expiry = values.expiry || calculateWarrantyExpiry(entryDate, warranty);
             return `<div class="asset-row">
                 <select class="asset-cat" required><option ${category==='CCTV & Video Surveillance'?'selected':''}>CCTV &amp; Video Surveillance</option><option ${category==='Access Control & Biometrics'?'selected':''}>Access Control &amp; Biometrics</option><option ${category==='Networking'?'selected':''}>Networking</option><option ${category==='Fire & Life Safety'?'selected':''}>Fire &amp; Life Safety</option></select>
@@ -1980,7 +1992,7 @@
             const year=new Date().getFullYear(); const cmsTickets=existingTickets.filter(t=>String(t.id).includes('-CMS-')); const maxSeq=cmsTickets.reduce((max,t)=>{const n=parseInt(String(t.id).slice(-6),10);return isNaN(n)?max:Math.max(max,n);},100); const id=`BTL-CMS-${year}-${String(maxSeq+1).padStart(6,'0')}`; const randomCode=Math.floor(1000+Math.random()*9000).toString();
             const customer=non?document.getElementById('compNewCustomer').value.trim():document.getElementById('compCustSelect').value; const site=non?document.getElementById('compNewSite').value.trim():document.getElementById('compSiteSelect').value;
             const chargeable=document.getElementById('compChargeable').value==='Yes' || document.getElementById('compCoverageType').value==='Chargeable Service' || document.getElementById('compCoverageType').value==='Out of Warranty';
-            const ticketObj={id,logDate:new Date().toISOString().split('T')[0],customer,site,serial:selectedSerial,coverage:document.getElementById('compCoverageType').value,priority:document.getElementById('compPriority').value,description:document.getElementById('compDescription').value,status:'Unassigned',technicianId:'Unassigned',technicianName:'Unassigned',happinessCode:randomCode,visitDate:'',visitTime:'',diagnosis:'',action:'',spares:'',issueImg:'',fixImg:'',jobType:'Complaint'};
+            const ticketObj={id,logDate:toLocalDateStr(new Date()),customer,site,serial:selectedSerial,coverage:document.getElementById('compCoverageType').value,priority:document.getElementById('compPriority').value,description:document.getElementById('compDescription').value,status:'Unassigned',technicianId:'Unassigned',technicianName:'Unassigned',happinessCode:randomCode,visitDate:'',visitTime:'',diagnosis:'',action:'',spares:'',issueImg:'',fixImg:'',jobType:'Complaint'};
             await addRecord('tickets',ticketObj);
             await updateTicketMetadata(id,{requestType:non?'Non-BTL':'BTL',contact:non?document.getElementById('compNewContact').value.trim():'',equipmentDetails:document.getElementById('compEquipmentDetails').value.trim(),chargeable,serviceCharge:document.getElementById('compServiceCharge').value,quotationAmount:document.getElementById('compQuotationAmount').value,invoiceNumber:document.getElementById('compInvoiceNumber').value.trim(),paymentStatus:chargeable?document.getElementById('compPaymentStatus').value:'Not Applicable',paymentReceivedDate:document.getElementById('compPaymentReceivedDate').value,paymentRemarks:document.getElementById('compPaymentRemarks').value.trim(),assignmentHistory:[],technicianIds:[],technicianNames:[]});
             await logAuditEvent('Complaint Logged',`Logged Ticket ${id} for ${customer}${non?' (Non-BTL / No Asset)':''}`); showToast(`Ticket ${id} logged. Happiness Code: ${randomCode}`); document.getElementById('complaintForm').reset(); updateComplaintFormMode(); toggleComplaintPaymentFields(); renderFilteredTickets();
@@ -2049,7 +2061,7 @@
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `btl-cms-tickets-${new Date().toISOString().split('T')[0]}.csv`;
+            a.download = `btl-cms-tickets-${toLocalDateStr(new Date())}.csv`;
             document.body.appendChild(a);
             a.click();
             a.remove();
@@ -2127,13 +2139,13 @@
         function shiftScheduleDate(delta) {
             const input = document.getElementById('scheduleDateInput');
             const base = input.value ? new Date(input.value + 'T00:00:00') : new Date();
-            if (delta === 0) { input.value = new Date().toISOString().split('T')[0]; }
-            else { base.setDate(base.getDate() + delta); input.value = base.toISOString().split('T')[0]; }
+            if (delta === 0) { input.value = toLocalDateStr(new Date()); }
+            else { base.setDate(base.getDate() + delta); input.value = toLocalDateStr(base); }
             renderDailySchedule();
         }
         async function renderDailySchedule() {
             const dateInput = document.getElementById('scheduleDateInput');
-            if (!dateInput.value) dateInput.value = new Date().toISOString().split('T')[0];
+            if (!dateInput.value) dateInput.value = toLocalDateStr(new Date());
             const date = dateInput.value;
 
             const [tickets, customers, technicians] = await Promise.all([getAllRecords('tickets'), getAllRecords('customers'), getAllRecords('technicians')]);
@@ -2212,6 +2224,17 @@
             document.body.appendChild(a); a.click(); a.remove();
             URL.revokeObjectURL(url);
             showToast(`Exported ${lastScheduleRows.length} scheduled task(s).`);
+        }
+        function shareDailyScheduleWhatsApp() {
+            if (!lastScheduleRows.length) { showToast('No scheduled tasks to share for this day.', 'error'); return; }
+            const date = document.getElementById('scheduleDateInput').value;
+            const dateLabel = new Date(date + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+            const timeW = 5, techW = Math.max(4, Math.min(16, Math.max(...lastScheduleRows.map(r => (r.techName || '').length))));
+            const line = r => `${(r.visitTime || '--:--').slice(0, timeW).padEnd(timeW)} ${String(r.techName || '').slice(0, techW).padEnd(techW)} ${r.ticketId}`;
+            const header = `${'Time'.padEnd(timeW)} ${'Tech'.padEnd(techW)} Ticket`;
+            const body = lastScheduleRows.map(r => `${line(r)}\n  ${r.customer}${r.address ? ' — ' + r.address : ''}`).join('\n');
+            const message = `*Daily Field Schedule*\n_${dateLabel}_ · ${lastScheduleRows.length} task(s)\n\`\`\`\n${header}\n${body}\n\`\`\`\n_Brihaspathi Technologies Limited_`;
+            window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
         }
 
         // Shared by the Assign/Reassign Tech screen and the Installations tab.
@@ -2307,7 +2330,7 @@
             const randomCode = Math.floor(1000+Math.random()*9000).toString();
             const chargeable = document.getElementById('instChargeable').value === 'Yes';
             const ticketObj = {
-                id, logDate:new Date().toISOString().split('T')[0], customer, site, serial:'', coverage:'Not Applicable',
+                id, logDate:toLocalDateStr(new Date()), customer, site, serial:'', coverage:'Not Applicable',
                 priority:document.getElementById('instPriority').value, description:document.getElementById('instDescription').value.trim(),
                 status:'Unassigned', technicianId:'Unassigned', technicianName:'Unassigned', happinessCode:randomCode,
                 visitDate:'', visitTime:'', diagnosis:'', action:'', spares:'', issueImg:'', fixImg:'', jobType:'Installation'
@@ -2374,7 +2397,7 @@
             const ok = await askConfirm(`Confirm installation ${ticketId} at ${t.customer} (${t.site}) as fully completed and closed? This should only be done once you've verified the site.`, 'Mark Installation Completed');
             if (!ok) return;
             t.status = 'Closed';
-            t.closedDate = new Date().toISOString().split('T')[0];
+            t.closedDate = toLocalDateStr(new Date());
             await awardTechnicianCredits(t);
             await putRecord('tickets', t);
             await logAuditEvent('Installation Completed', `Manager confirmed completion of Installation ${ticketId} at ${t.customer} (${t.site}).`);
@@ -2539,7 +2562,7 @@
                 return;
             }
             resignTechId = id;
-            document.getElementById('resignDateInput').value = new Date().toISOString().split('T')[0];
+            document.getElementById('resignDateInput').value = toLocalDateStr(new Date());
             document.getElementById('resignModal').style.display = 'flex';
         }
 
@@ -2799,7 +2822,7 @@
             const isInstall = (ticket.jobType||'Complaint') === 'Installation';
             const statusSelection = isInstall ? document.getElementById('techInstallStatus').value : document.getElementById('techCallStatus').value;
             const chargeable=!!ticket.chargeable || ticket.coverage==='Chargeable Service' || ticket.coverage==='Out of Warranty'; const paymentStatus=ticket.paymentStatus||'Not Applicable';
-            if(statusSelection==='Closed'){ if(chargeable&&paymentStatus!=='Paid'){showToast('Chargeable complaint cannot be finally closed until payment status is Paid.','error');return;} const code=document.getElementById('techHappinessCode').value.trim(); if(code!==ticket.happinessCode){showToast('Invalid Happiness Code. Please enter the code provided by the customer.','error');return;} ticket.closedDate=new Date().toISOString().split('T')[0]; await awardTechnicianCredits(ticket); }
+            if(statusSelection==='Closed'){ if(chargeable&&paymentStatus!=='Paid'){showToast('Chargeable complaint cannot be finally closed until payment status is Paid.','error');return;} const code=document.getElementById('techHappinessCode').value.trim(); if(code!==ticket.happinessCode){showToast('Invalid Happiness Code. Please enter the code provided by the customer.','error');return;} ticket.closedDate=toLocalDateStr(new Date()); await awardTechnicianCredits(ticket); }
             ticket.diagnosis=document.getElementById('techDiagnosis').value; ticket.action=document.getElementById('techAction').value; ticket.spares=document.getElementById('chkSparesRequired').checked?document.getElementById('techSpares').value:''; ticket.status=statusSelection; ticket.issueImg=document.getElementById('issueImgBase64').value||ticket.issueImg; ticket.fixImg=document.getElementById('fixImgBase64').value||ticket.fixImg; ticket.updatedAt=new Date().toISOString();
             const collectionStatus=document.getElementById('techPaymentCollectionStatus')?.value||'Not Collected'; const amountCollected=parseFloat(document.getElementById('techPaymentAmountCollected')?.value||'0')||0; const dueAmount=parseFloat(ticket.serviceCharge||ticket.quotationAmount||'0')||0;
             if(chargeable&&collectionStatus==='Collected'){ if(amountCollected<=0){showToast('Enter the amount collected.','error');return;} if(!document.getElementById('techPaymentMode').value){showToast('Select the payment mode.','error');return;} if(!document.getElementById('techPaymentDate').value){showToast('Enter the payment date.','error');return;} ticket.paymentStatus=(dueAmount>0&&amountCollected<dueAmount)?'Partially Paid':'Paid'; }
